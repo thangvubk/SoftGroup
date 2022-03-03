@@ -1,58 +1,28 @@
 
-# HAIS
+# SoftGroup
 
 [![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/hierarchical-aggregation-for-3d-instance/3d-instance-segmentation-on-scannetv2)](https://paperswithcode.com/sota/3d-instance-segmentation-on-scannetv2?p=hierarchical-aggregation-for-3d-instance) [![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/hierarchical-aggregation-for-3d-instance/3d-instance-segmentation-on-s3dis)](https://paperswithcode.com/sota/3d-instance-segmentation-on-s3dis?p=hierarchical-aggregation-for-3d-instance)
 
-## SoftGroup for 3D Instance Segmentation on Point Clouds (CVPR 2022)
+![Architecture](./docs/architecture.png)
 
+We provide code for reproducing results of the paper "SoftGroup for 3D Instance Segmentation on Point Clouds" (CVPR 2022)
 
-by Thang Vu, Kookhoi Kim, Tung M. Luu, Xuan Thanh Nguyen, and Chang D. Yoo.
-[
-
-<div align="center">
-<img src="docs/scene0249_00_output_2.gif" width="48%" />
-<img src="docs/scene0430_00_output_2.gif" width="48%" />
-</div>
-
-<br>
-
+Author: Thang Vu, Kookhoi Kim, Tung M. Luu, Xuan Thanh Nguyen, and Chang D. Yoo.
 
 
 ## Introduction
 
-Existing state-of-the-art 3D instance segmentation methods perform semantic segmentation followed by grouping. The hard predictions are made when performing semantic segmentation such that each point is associated with a single class. However, the errors stemming from hard decision propagate into grouping that results in (1) low overlaps between the predicted instance with the ground truth and (2) substantial false positives. To address the aforementioned problems, this paper proposes a 3D instance segmentation method referred to as SoftGroup by performing bottom-up soft grouping followed by top-down refinement. SoftGroup allows each point to be associated with multiple classes to mitigate the problems stemming from semantic prediction errors and suppresses false positive instances by learning to categorize them as background. Experimental results on different datasets and multiple evaluation metrics demonstrate the efficacy of SoftGroup. Its performance surpasses the strongest prior method by a significant margin of +6.2% on the ScanNet v2 hidden test set and +6.8% on S3DIS Area 5 in terms of AP_50.
+Existing state-of-the-art 3D instance segmentation methods perform semantic segmentation followed by grouping. The hard predictions are made when performing semantic segmentation such that each point is associated with a single class. However, the errors stemming from hard decision propagate into grouping that results in (1) low overlaps between the predicted instance with the ground truth and (2) substantial false positives. To address the aforementioned problems, this paper proposes a 3D instance segmentation method referred to as SoftGroup by performing bottom-up soft grouping followed by top-down refinement. SoftGroup allows each point to be associated with multiple classes to mitigate the problems stemming from semantic prediction errors and suppresses false positive instances by learning to categorize them as background. Experimental results on different datasets and multiple evaluation metrics demonstrate the efficacy of SoftGroup. Its performance surpasses the strongest prior method by a significant margin of +6.2% on the ScanNet v2 hidden test set and +6.8% on S3DIS Area 5 of AP_50.
   
-![Framework](./docs/framework.png)
-
-* **High performance**. HAIS [ranks 1st](http://kaldir.vc.in.tum.de/scannet_benchmark/semantic_instance_3d) on the [ScanNet benchmark](http://kaldir.vc.in.tum.de/scannet_benchmark/semantic_instance_3d) (Aug. 8th, 2021).
-
-![Learderboard](./docs/scannet_leaderboard.png)
-
-* **High speed**. Thanks to the NMS-free and single-forward inference design, HAIS achieves the best inference speed among all existing methods. HAIS only takes **206 ms** on RTX 3090 and **339 ms** on TITAN X.
+![Learderboard](./docs/leaderboard.png)
 
 
-|  Method   | Per-frame latency on TITAN X|
-| :-: | :-: |
-|ASIS|181913 ms|
-|SGPN|158439 ms|
-|3D-SIS|124490 ms|
-|GSPN|12702 ms|
-|3D-BoNet|9202 ms|
-|GICN|8615 ms|
-|OccuSeg|1904 ms|
-|PointGroup|452 ms|
-|**HAIS**|**339 ms**|
+## Feature
 
-[[ICCV21 presentation]](https://drive.google.com/file/d/1zDBqMBHrB077VbJUZdMY1D0LbtdjgpSi/view?usp=sharing)
+* State of the art performance on the [ScanNet benchmark](http://kaldir.vc.in.tum.de/scannet_benchmark/semantic_instance_3d) and S3DIS dataset (3/Mar/2022).
+* High speed of 345 ms per scan on ScanNet dataset, which is comparable with the existing fastest methods ([HAIS](https://github.com/hustvl/HAIS)).
+* Reproducibility code for both ScanNet and S3DIS datasets.
 
-
-
-
-## Update
-
-#### 2021.9.30: 
-* Code is released.
-* With better CUDA optimization, HAIS now only takes 339 ms on TITAN X, much better than the latency reported in the paper (410 ms on TITAN X).
 
 
 ## Installation
@@ -66,20 +36,20 @@ Existing state-of-the-art 3D instance segmentation methods perform semantic segm
 
 Create a conda virtual environment and activate it.
 ```
-conda create -n hais python=3.7
-conda activate hais
+conda create -n softgroup python=3.7
+conda activate softgroup
 ```
 
 
 2\) Clone the repository.
 ```
-git clone https://github.com/hustvl/HAIS.git --recursive
+git clone https://github.com/thangvubk/SoftGroup.git --recursive
 ```
 
   
 3\) Install the requirements.
 ```
-cd HAIS
+cd SoftGroup
 pip install -r requirements.txt
 conda install -c bioconda google-sparsehash 
 ```
@@ -107,21 +77,21 @@ conda install -c daleydeng gcc-5 # (optional, install gcc-5.4 in conda env)
 
 * Compile the spconv library.
 ```
-cd HAIS/lib/spconv
+cd SoftGroup/lib/spconv
 python setup.py bdist_wheel
 ```
 
 * Intall the generated .whl file.
 ```
-cd HAIS/lib/spconv/dist
+cd SoftGroup/lib/spconv/dist
 pip install {wheel_file_name}.whl
 ```
 
 
 5\) Compile the external C++ and CUDA ops.
 ```
-cd HAIS/lib/hais_ops
-export CPLUS_INCLUDE_PATH={conda_env_path}/hais/include:$CPLUS_INCLUDE_PATH
+cd SoftGroup/lib/softgroup_ops
+export CPLUS_INCLUDE_PATH={conda_env_path}/softgroup/include:$CPLUS_INCLUDE_PATH
 python setup.py build_ext develop
 ```
 {conda_env_path} is the location of the created conda environment, e.g., `/anaconda3/envs`.
@@ -163,7 +133,7 @@ python prepare_data_inst.py --data_split test
 
 ## Training
 ```
-CUDA_VISIBLE_DEVICES=0 python train.py --config config/hais_run1_scannet.yaml 
+CUDA_VISIBLE_DEVICES=0 python train.py --config config/softgroup_default_scannet.yaml 
 ```
 
 
@@ -181,27 +151,8 @@ python prepare_data_inst_gttxt.py
   
 * Run the inference and evaluation code.
 ```
-CUDA_VISIBLE_DEVICES=0 python test.py --config config/hais_run1_scannet.yaml --pretrain $PATH_TO_PRETRAIN_MODEL$
+CUDA_VISIBLE_DEVICES=0 python test.py --config config/softgroup_default_scannet.yaml --pretrain $PATH_TO_PRETRAIN_MODEL$
 ```
-
-
-Pretrained model: [Google Drive](https://drive.google.com/file/d/1XGNswNrbjm33SwpemYxVEoK4o46EOazd/view?usp=sharing) / [Baidu Cloud](https://pan.baidu.com/s/12dx-39jBOyU9QzGlpgJ8OQ) [code: sh4t].
-mAP/mAP50/mAP25 is 44.1/64.4/75.7.
-
-
-
-2\) To evaluate on test set, 
-
-* Set (`split`, `eval`, `save_instance`) as (`test`, `False`, `True`). 
-* Run the inference code. Prediction results are saved in `HAIS/exp` by default.
-```
-CUDA_VISIBLE_DEVICES=0 python test.py --config config/hais_run1_scannet.yaml --pretrain $PATH_TO_PRETRAIN_MODEL$
-```
-
-* Transform the prediction results into the [submission format](http://kaldir.vc.in.tum.de/scannet_benchmark/documentation).
-* Submit the results to the [official evaluation server](http://kaldir.vc.in.tum.de/scannet_benchmark/submissions).
-
-
 
 
 ## Visualization
@@ -213,22 +164,15 @@ python visualize_open3d.py --data_path {} --prediction_path {} --data_split {} -
 Please refer to `visualize_open3d.py` for more details.
 
 
-## Acknowledgement
-The code is based on [PointGroup](https://github.com/dvlab-research/PointGroup) and [spconv](https://github.com/traveller59/spconv).
-
-
-## Contact
-If you have any questions or suggestions about this repo, please feel free to contact me (shaoyuchen@hust.edu.cn).
-
 
 ## Citation
+If you find our work helpful for your research. Please cite our paper.
+
 ```
-@InProceedings{Chen_2021_ICCV,
-    author    = {Chen, Shaoyu and Fang, Jiemin and Zhang, Qian and Liu, Wenyu and Wang, Xinggang},
-    title     = {Hierarchical Aggregation for 3D Instance Segmentation},
-    booktitle = {Proceedings of the IEEE/CVF International Conference on Computer Vision (ICCV)},
-    month     = {October},
-    year      = {2021},
-    pages     = {15467-15476}
+@inproceedings{vu2019softgroup,
+  title={SoftGroup for 3D Instance Segmentation on 3D Point Clouds},
+  author={Vu, Thang and Kim, Kookhoi and Luu, Tung M. and Nguyen, Xuan Thanh and Yoo, Chang D.},
+  booktitle={CVPR},
+  year={2022}
 }
 ```
