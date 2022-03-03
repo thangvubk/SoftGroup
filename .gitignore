@@ -1,0 +1,76 @@
+## General
+
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.cuo
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+
+# Compiled protocol buffers
+*.pb.h
+*.pb.cc
+*_pb2.py
+
+# Compiled python
+*.pyc
+
+# Compiled MATLAB
+*.mex*
+
+# IPython notebook checkpoints
+.ipynb_checkpoints
+
+# Editor temporaries
+*.swp
+*~
+
+# Sublime Text settings
+*.sublime-workspace
+*.sublime-project
+
+# Eclipse Project settings
+*.*project
+.settings
+
+# QtCreator files
+*.user
+
+# PyCharm files
+.idea
+
+# Visual Studio Code files
+.vscode
+
+# OSX dir files
+.DS_Store
+
+# personal
+__pycache__/
+exp/
+*.egg-info/
+build/
+dist/
+
+*.tsv
+*.npy
+*.zip
+dataset/scannetv2/train
+dataset/scannetv2/val
+dataset/scannetv2/test
+dataset/scannetv2/val_gt
+dataset/scannetv2/scannetv2-labels.combined.tsv
+
+dataset/s3dis/preprocess
+dataset/s3dis/val_gt
+
+

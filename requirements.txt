@@ -1,0 +1,7 @@
+torch==1.1
+cmake>=3.13.2
+plyfile
+tensorboardX
+pyyaml
+scipy
+six

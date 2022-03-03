@@ -1,0 +1,85 @@
+GENERAL:
+  task: train  # train, test
+  manual_seed: 123
+  model_dir: model/hais/hais.py
+  dataset_dir: data/scannetv2_inst.py
+
+DATA:
+  data_root: dataset
+  dataset: scannetv2
+  filename_suffix: _inst_nostuff.pth
+
+  semantic_classes: 20
+  classes: 18
+  class_numpoint_mean: [-1., -1., 3917., 12056., 2303.,
+                        8331., 3948., 3166., 5629., 11719.,
+                        1003., 3317., 4912., 10221., 3889.,
+                        4136., 2120., 945., 3967., 2589.]
+  ignore_label: -100
+
+  input_channel: 3
+  scale: 50   # voxel_size = 1 / scale, scale 50 -> voxel_size 0.02m
+  batch_size: 4
+  full_scale: [128, 512]
+  max_npoint: 250000
+  mode: 4 # 4=mean
+
+STRUCTURE:
+  model_name: hais
+  width: 32
+  block_residual: True
+  block_reps: 2
+  use_coords: True
+
+TRAIN:
+  epochs: 500
+  train_workers: 4 # data loader workers
+  optim: Adam # Adam or SGD
+  lr: 0.001
+  step_epoch: 200
+  multiplier: 0.5
+  momentum: 0.9
+  weight_decay: 0.0001
+  save_freq: 4  # also eval_freq
+  loss_weight: [1.0, 1.0, 1.0, 1.0, 1.0] # semantic_loss, offset_norm_loss, cls_loss, mask_loss, score_loss
+  fg_thresh: 1.
+  bg_thresh: 0.
+  score_scale: 50 # the minimal voxel size is 2cm
+  score_fullscale: 20  
+  score_mode: 4 # mean
+  pretrain_path: 
+  pretrain_module: []
+  fix_module: []
+
+  point_aggr_radius: 0.04
+  cluster_shift_meanActive: 300
+  prepare_epochs: 100
+  using_set_aggr_in_training: False
+  using_set_aggr_in_testing: False
+  max_proposal_num: 200
+  iou_thr: 0.5
+  score_thr: 0.2
+
+TEST:
+  split: val
+  test_epoch: 500
+  test_workers: 16
+  test_seed: 567
+
+  using_NMS: False
+  TEST_NMS_THRESH: 0.3
+  TEST_SCORE_THRESH: -1
+  TEST_NPOINT_THRESH: 100
+
+  eval: True
+  save_semantic: False
+  save_pt_offsets: False
+  save_instance: False
+
+  test_mask_score_thre: -0.5 # bias fg << bg
+
+
+  
+
+
+
