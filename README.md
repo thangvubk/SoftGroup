@@ -1,11 +1,9 @@
 
 # SoftGroup
 
-[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/hierarchical-aggregation-for-3d-instance/3d-instance-segmentation-on-scannetv2)](https://paperswithcode.com/sota/3d-instance-segmentation-on-scannetv2?p=hierarchical-aggregation-for-3d-instance) [![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/hierarchical-aggregation-for-3d-instance/3d-instance-segmentation-on-s3dis)](https://paperswithcode.com/sota/3d-instance-segmentation-on-s3dis?p=hierarchical-aggregation-for-3d-instance)
-
 ![Architecture](./docs/architecture.png)
 
-We provide code for reproducing results of the paper "SoftGroup for 3D Instance Segmentation on Point Clouds" (CVPR 2022)
+We provide code for reproducing results of the paper **SoftGroup for 3D Instance Segmentation on Point Clouds (CVPR 2022)**
 
 Author: Thang Vu, Kookhoi Kim, Tung M. Luu, Xuan Thanh Nguyen, and Chang D. Yoo.
 
@@ -58,9 +56,9 @@ conda install -c bioconda google-sparsehash
 
 *  Verify the version of spconv.
   
-      spconv 1.0, compatible with CUDA < 11 and pytorch < 1.5, is already recursively cloned in `HAIS/lib/spconv` in step 2) by default. 
+      spconv 1.0, compatible with CUDA < 11 and pytorch < 1.5, is already recursively cloned in `SoftGroup/lib/spconv` in step 2) by default. 
 
-      For higher version CUDA and pytorch, spconv 1.2 is suggested. Replace `HAIS/lib/spconv` with this fork of spconv.
+      For higher version CUDA and pytorch, spconv 1.2 is suggested. Replace `SoftGroup/lib/spconv` with this fork of spconv.
 
 ```
 git clone https://github.com/outsidercsy/spconv.git --recursive
@@ -111,7 +109,7 @@ python setup.py build_ext develop
 
 The dataset files are organized as follows.
 ```
-HAIS
+SoftGroup
 ├── dataset
 │   ├── scannetv2
 │   │   ├── train
@@ -125,7 +123,7 @@ HAIS
 
 3\) Generate input files `[scene_id]_inst_nostuff.pth` for instance segmentation.
 ```
-cd HAIS/dataset/scannetv2
+cd SoftGroup/dataset/scannetv2
 python prepare_data_inst.py --data_split train
 python prepare_data_inst.py --data_split val
 python prepare_data_inst.py --data_split test
