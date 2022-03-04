@@ -3,7 +3,7 @@
 
 ![Architecture](./docs/architecture.png)
 
-We provide code for reproducing results of the paper **SoftGroup for 3D Instance Segmentation on Point Clouds (CVPR 2022)**
+We provide code for reproducing results of the paper [SoftGroup for 3D Instance Segmentation on Point Clouds (CVPR 2022)](https://arxiv.org/abs/2203.01509)
 
 Author: Thang Vu, Kookhoi Kim, Tung M. Luu, Xuan Thanh Nguyen, and Chang D. Yoo.
 
