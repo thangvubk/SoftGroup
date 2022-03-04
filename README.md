@@ -113,6 +113,12 @@ SoftGroup
 │   │   ├── val_gt
 ```
 
+## Pretrained models
+
+|   Dataset  |  AP  | AP_50 | AP_25 |                                           Download                                          |
+|:----------:|:----:|:-----:|:-----:|:-------------------------------------------------------------------------------------------:|
+|    S3DIS   |      |       |       | [model](https://drive.google.com/file/d/1RodfMTUC-0YWs47kx8lj-i0jbDyM9PO6/view?usp=sharing) |
+| ScanNet v2 | 46.0 |  67.6 |  78.9 | [model](https://drive.google.com/file/d/1Gt1JUXXB-sBtAeuot29crAUnBwcXW7rN/view?usp=sharing) |
 
 ## Training
 ```
