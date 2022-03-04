@@ -54,35 +54,19 @@ conda install -c bioconda google-sparsehash
 
 4\) Install spconv 
 
-*  Verify the version of spconv.
-  
-      spconv 1.0, compatible with CUDA < 11 and pytorch < 1.5, is already recursively cloned in `SoftGroup/lib/spconv` in step 2) by default. 
 
-      For higher version CUDA and pytorch, spconv 1.2 is suggested. Replace `SoftGroup/lib/spconv` with this fork of spconv.
-
+*  Install the dependencies.
 ```
-git clone https://github.com/outsidercsy/spconv.git --recursive
-```
+sudo apt-get install libboost-all-dev
+sudo apt-get install libsparsehash-dev
 
-      Note:  In the provided spconv 1.0 and 1.2, spconv\spconv\functional.py is modified to make grad_output contiguous. Make sure you use the modified spconv but not the original one. Or there would be some bugs of optimization.
-
-
-*  Install the dependent libraries.
-```
-conda install libboost
-conda install -c daleydeng gcc-5 # (optional, install gcc-5.4 in conda env)
 ```
 
 * Compile the spconv library.
 ```
 cd SoftGroup/lib/spconv
 python setup.py bdist_wheel
-```
-
-* Intall the generated .whl file.
-```
-cd SoftGroup/lib/spconv/dist
-pip install {wheel_file_name}.whl
+pip install dist/{WHEEL_FILE_NAME}.whl
 ```
 
 
@@ -100,34 +84,35 @@ python setup.py build_ext develop
 
 1\) Download the [ScanNet](http://www.scan-net.org/) v2 dataset.
 
-2\) Put the data in the corresponding folders. 
-* Copy the files `[scene_id]_vh_clean_2.ply`,  `[scene_id]_vh_clean_2.labels.ply`,  `[scene_id]_vh_clean_2.0.010000.segs.json`  and `[scene_id].aggregation.json`  into the `dataset/scannetv2/train` and `dataset/scannetv2/val` folders according to the ScanNet v2 train/val [split](https://github.com/ScanNet/ScanNet/tree/master/Tasks/Benchmark). 
+2\) Put the downloaded ``scans`` and ``scans_test`` folder as follows.
 
-* Copy the files `[scene_id]_vh_clean_2.ply` into the `dataset/scannetv2/test` folder according to the ScanNet v2 test [split](https://github.com/ScanNet/ScanNet/tree/master/Tasks/Benchmark). 
-
-* Put the file `scannetv2-labels.combined.tsv` in the `dataset/scannetv2` folder.
-
-The dataset files are organized as follows.
 ```
 SoftGroup
 ├── dataset
 │   ├── scannetv2
-│   │   ├── train
-│   │   │   ├── [scene_id]_vh_clean_2.ply & [scene_id]_vh_clean_2.labels.ply & [scene_id]_vh_clean_2.0.010000.segs.json & [scene_id].aggregation.json
-│   │   ├── val
-│   │   │   ├── [scene_id]_vh_clean_2.ply & [scene_id]_vh_clean_2.labels.ply & [scene_id]_vh_clean_2.0.010000.segs.json & [scene_id].aggregation.json
-│   │   ├── test
-│   │   │   ├── [scene_id]_vh_clean_2.ply 
-│   │   ├── scannetv2-labels.combined.tsv
+│   │   ├── scans
+│   │   ├── scans_test
 ```
 
-3\) Generate input files `[scene_id]_inst_nostuff.pth` for instance segmentation.
+3\) Split and preprocess data
 ```
 cd SoftGroup/dataset/scannetv2
-python prepare_data_inst.py --data_split train
-python prepare_data_inst.py --data_split val
-python prepare_data_inst.py --data_split test
+bash prepare_data.sh
 ```
+
+The script data into train/val/test folder and preprocess the data. After running the script the scannet dataset structure should look like below.
+```
+SoftGroup
+├── dataset
+│   ├── scannetv2
+│   │   ├── scans
+│   │   ├── scans_test
+│   │   ├── train
+│   │   ├── val
+│   │   ├── test
+│   │   ├── val_gt
+```
+
 
 ## Training
 ```
