@@ -27,7 +27,7 @@ Please refer to [data preparation](dataset/README.md) for preparing the S3DIS an
 ## Pretrained models
 |   Dataset  |  AP  | AP_50 | AP_25 |                                           Download                                          |
 |:----------:|:----:|:-----:|:-----:|:-------------------------------------------------------------------------------------------:|
-|    S3DIS   |      |       |       | [model](https://drive.google.com/file/d/1RodfMTUC-0YWs47kx8lj-i0jbDyM9PO6/view?usp=sharing) |
+|    S3DIS   | 51.4 |  66.5 |  75.4 | [model](https://drive.google.com/file/d/1RodfMTUC-0YWs47kx8lj-i0jbDyM9PO6/view?usp=sharing) |
 | ScanNet v2 | 46.0 |  67.6 |  78.9 | [model](https://drive.google.com/file/d/1Gt1JUXXB-sBtAeuot29crAUnBwcXW7rN/view?usp=sharing) |
 
 ## Training
@@ -36,6 +36,11 @@ CUDA_VISIBLE_DEVICES=0 python train.py --config config/softgroup_default_scannet
 ```
 
 ## Inference
+Testing for S3DIS dataset.
+```
+CUDA_VISIBLE_DEVICES=0 python test_s3dis.py --config config/softgroup_fold5_phase2_s3dis.yaml --pretrain $PATH_TO_PRETRAIN_MODEL$
+```
+Testing for ScanNet V2 dataset.
 ```
 CUDA_VISIBLE_DEVICES=0 python test.py --config config/softgroup_default_scannet.yaml --pretrain $PATH_TO_PRETRAIN_MODEL$
 ```
