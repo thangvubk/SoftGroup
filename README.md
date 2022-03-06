@@ -3,7 +3,7 @@
 
 ![Architecture](./docs/architecture.png)
 
-We provide code for reproducing results of the paper [SoftGroup for 3D Instance Segmentation on Point Clouds (CVPR 2022)](https://arxiv.org/abs/2203.01509)
+We provide code for reproducing results of the paper **SoftGroup for 3D Instance Segmentation on Point Clouds (CVPR 2022)**
 
 Author: Thang Vu, Kookhoi Kim, Tung M. Luu, Xuan Thanh Nguyen, and Chang D. Yoo.
 
@@ -25,93 +25,12 @@ Existing state-of-the-art 3D instance segmentation methods perform semantic segm
 
 ## Installation
 
-1\) Environment
-
-* Python 3.x
-* Pytorch 1.1 or higher
-* CUDA 9.2 or higher
-* gcc-5.4 or higher
-
-Create a conda virtual environment and activate it.
-```
-conda create -n softgroup python=3.7
-conda activate softgroup
-```
-
-
-2\) Clone the repository.
-```
-git clone https://github.com/thangvubk/SoftGroup.git --recursive
-```
-
-  
-3\) Install the requirements.
-```
-cd SoftGroup
-pip install -r requirements.txt
-conda install -c bioconda google-sparsehash 
-```
-
-4\) Install spconv 
-
-
-*  Install the dependencies.
-```
-sudo apt-get install libboost-all-dev
-sudo apt-get install libsparsehash-dev
-
-```
-
-* Compile the spconv library.
-```
-cd SoftGroup/lib/spconv
-python setup.py bdist_wheel
-pip install dist/{WHEEL_FILE_NAME}.whl
-```
-
-
-5\) Compile the external C++ and CUDA ops.
-```
-cd SoftGroup/lib/softgroup_ops
-export CPLUS_INCLUDE_PATH={conda_env_path}/softgroup/include:$CPLUS_INCLUDE_PATH
-python setup.py build_ext develop
-```
-{conda_env_path} is the location of the created conda environment, e.g., `/anaconda3/envs`.
+Please refer to [installation guide](docs/installation.md).
 
 
 
 ## Data Preparation
-
-1\) Download the [ScanNet](http://www.scan-net.org/) v2 dataset.
-
-2\) Put the downloaded ``scans`` and ``scans_test`` folder as follows.
-
-```
-SoftGroup
-├── dataset
-│   ├── scannetv2
-│   │   ├── scans
-│   │   ├── scans_test
-```
-
-3\) Split and preprocess data
-```
-cd SoftGroup/dataset/scannetv2
-bash prepare_data.sh
-```
-
-The script data into train/val/test folder and preprocess the data. After running the script the scannet dataset structure should look like below.
-```
-SoftGroup
-├── dataset
-│   ├── scannetv2
-│   │   ├── scans
-│   │   ├── scans_test
-│   │   ├── train
-│   │   ├── val
-│   │   ├── test
-│   │   ├── val_gt
-```
+Please refer to [data preparation](dataset/README.md) for preparing the S3DIS and ScanNet v2 dataset.
 
 ## Pretrained models
 
