@@ -31,9 +31,7 @@ Please refer to [data preparation](dataset/README.md) for preparing the S3DIS an
 | ScanNet v2 | 46.0 |  67.6 |  78.9 | [model](https://drive.google.com/file/d/1Gt1JUXXB-sBtAeuot29crAUnBwcXW7rN/view?usp=sharing) |
 
 ## Training
-```
-CUDA_VISIBLE_DEVICES=0 python train.py --config config/softgroup_default_scannet.yaml 
-```
+The detail training will be out soon!
 
 ## Inference
 Testing for S3DIS dataset.
