@@ -105,11 +105,11 @@ def get_parser():
     parser = argparse.ArgumentParser(description="s3dis data prepare")
     parser.add_argument("--data-root",
                         type=str,
-                        default="./data",
+                        default="./Stanford3dDataset_v1.2",
                         help="root dir save data")
     parser.add_argument("--save-dir",
                         type=str,
-                        default="./inputs",
+                        default="./preprocess",
                         help="directory save processed data")
     parser.add_argument(
         "--patch",

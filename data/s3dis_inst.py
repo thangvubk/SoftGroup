@@ -39,14 +39,6 @@ class Dataset:
 
 
     def trainLoader(self):
-        # if self.train_split == 'trainval':
-        #     train_file_names = sorted(glob.glob(os.path.join(self.data_root, self.dataset, 'train', '*' + self.filename_suffix))
-        #         + glob.glob(os.path.join(self.data_root, self.dataset, 'val', '*' + self.filename_suffix))
-        #     )
-        # elif self.train_split == 'train':
-        #     train_file_names = sorted(glob.glob(os.path.join(self.data_root, self.dataset, 'train', '*' + self.filename_suffix)))
-        # else:
-        #     raise Exception
         train_file_names = []
         for area in self.train_areas:
             train_file_names += glob.glob(os.path.join(self.data_root, self.dataset, 'preprocess', area + '*' + self.filename_suffix))
@@ -83,7 +75,7 @@ class Dataset:
                                     drop_last=False, pin_memory=True)
 
     def valLoader(self):
-        val_file_names = sorted(glob.glob(os.path.join(self.data_root, self.dataset, 'preprocess/_sample', self.test_area + '*' + self.filename_suffix)))
+        val_file_names = sorted(glob.glob(os.path.join(self.data_root, self.dataset, 'preprocess_sample', self.test_area + '*' + self.filename_suffix)))
         self.val_files = val_file_names
 
         logger.info('Validation samples: {}'.format(len(self.val_files)))
@@ -94,7 +86,7 @@ class Dataset:
 
 
     def testLoader(self):
-        self.test_file_names = sorted(glob.glob(os.path.join(self.data_root, self.dataset, 'preprocess/', self.test_area + '*' + self.filename_suffix)))
+        self.test_file_names = sorted(glob.glob(os.path.join(self.data_root, self.dataset, 'preprocess', self.test_area + '*' + self.filename_suffix)))
         self.test_files = self.test_file_names
 
         logger.info('Testing samples ({}): {}'.format(self.test_split, len(self.test_files)))

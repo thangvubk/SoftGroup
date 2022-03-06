@@ -172,12 +172,12 @@ def test(model, model_fn, data_name, epoch):
                 # import pdb; pdb.set_trace()
 
                 nclusters = clusters.shape[0]
-                if nclusters > cfg.max_clusters:
-                    nclusters = cfg.max_clusters
-                    _, topk_inds = cluster_scores.topk(cfg.max_clusters)
-                    clusters = clusters[topk_inds]
-                    cluster_scores = cluster_scores[topk_inds]
-                    cluster_semantic_id = cluster_semantic_id[topk_inds]
+                # if nclusters > cfg.max_clusters:
+                #     nclusters = cfg.max_clusters
+                #     _, topk_inds = cluster_scores.topk(cfg.max_clusters)
+                #     clusters = clusters[topk_inds]
+                #     cluster_scores = cluster_scores[topk_inds]
+                #     cluster_semantic_id = cluster_semantic_id[topk_inds]
 
 
                 # prepare for evaluation

@@ -5,3 +5,5 @@ tensorboardX
 pyyaml==5.4.1
 scipy
 six
+pandas
+scikit-learn

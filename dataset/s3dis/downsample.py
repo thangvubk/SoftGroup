@@ -75,7 +75,7 @@ def get_parser():
         description="downsample s3dis by voxelization")
     parser.add_argument("--data-dir",
                         type=str,
-                        default="./inputs",
+                        default="./preprocess",
                         help="directory save processed data")
     parser.add_argument("--ratio",
                         type=float,
