@@ -1,7 +1,7 @@
 GENERAL:
   task: train  # train, test
   manual_seed: 123
-  model_dir: model/hais/hais.py
+  model_dir: model/softgroup/softgroup.py
   dataset_dir: data/scannetv2_inst.py
 
 DATA:
@@ -12,6 +12,7 @@ DATA:
   test_area: 'Area_5'
   train_repeats: 5
 
+  semantic_classes: 13
   classes: 13
   ignore_label: -100
 
@@ -23,7 +24,7 @@ DATA:
   mode: 4 # 4=mean
 
 STRUCTURE:
-  model_name: hais
+  model_name: softgroup
   width: 32
   block_residual: True
   block_reps: 2
@@ -46,7 +47,7 @@ TRAIN:
   score_scale: 50 # the minimal voxel size is 2cm
   score_fullscale: 20  
   score_mode: 4 # mean
-  pretrain_path: 'hais_ckpt.pth'
+  pretrain_path: 'softgroup_ckpt.pth'
   pretrain_module: ['input_conv', 'unet', 'output_layer']
   fix_module: []
 
@@ -69,6 +70,7 @@ TRAIN:
   max_clusters: 100
 
   iou_thr: 0.5
+  score_thr: 0.2
 
 TEST:
   split: val

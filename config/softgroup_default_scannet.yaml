@@ -30,6 +30,7 @@ STRUCTURE:
   block_residual: True
   block_reps: 2
   use_coords: True
+  semantic_only: False
 
 TRAIN:
   epochs: 500
@@ -40,20 +41,20 @@ TRAIN:
   multiplier: 0.5
   momentum: 0.9
   weight_decay: 0.0001
-  save_freq: 4  # also eval_freq
+  save_freq: 16  # also eval_freq
   loss_weight: [1.0, 1.0, 1.0, 1.0, 1.0] # semantic_loss, offset_norm_loss, cls_loss, mask_loss, score_loss
   fg_thresh: 1.
   bg_thresh: 0.
   score_scale: 50 # the minimal voxel size is 2cm
   score_fullscale: 20  
   score_mode: 4 # mean
-  pretrain_path: 
-  pretrain_module: []
-  fix_module: []
+  pretrain_path: 'hais_ckpt.pth'
+  pretrain_module: ['input_conv', 'unet', 'output_layer', 'semantic_linear', 'offset_linear', 'intra_ins_unet', 'intra_ins_outputlayer']
+  fix_module: ['input_conv', 'unet', 'output_layer', 'semantic_linear', 'offset_linear']
 
   point_aggr_radius: 0.04
   cluster_shift_meanActive: 300
-  prepare_epochs: 100
+  prepare_epochs: -1
   using_set_aggr_in_training: False
   using_set_aggr_in_testing: False
   max_proposal_num: 200

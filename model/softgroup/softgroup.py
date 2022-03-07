@@ -101,7 +101,7 @@ class UBlock(nn.Module):
         return output
 
 class SoftGroup(nn.Module):
-    def __init__(self, cfg):
+    def __init__(self, cfg, pretrained=True):
         super().__init__()
 
         input_c = cfg.input_channel
@@ -183,14 +183,15 @@ class SoftGroup(nn.Module):
         module_map = {'input_conv': self.input_conv, 'unet': self.unet, 'output_layer': self.output_layer,
                       'semantic_linear': self.semantic_linear, 'offset_linear': self.offset_linear,
                       'intra_ins_unet': self.intra_ins_unet, 'intra_ins_outputlayer': self.intra_ins_outputlayer, 
-                      'score_linear': self.score_linear, 'mask_linear': self.mask_linear}
+                      'score_linear': self.score_linear, 'mask_linear': self.mask_linear,
+                      'cls_linear': self.cls_linear}
         for m in self.fix_module:
             mod = module_map[m]
             for param in mod.parameters():
                 param.requires_grad = False
 
         # load pretrain weights
-        if self.pretrain_path is not None:
+        if pretrained and self.pretrain_path is not None:
             pretrain_dict = torch.load(self.pretrain_path)
             for m in self.pretrain_module:
                 print("Load pretrained " + m + ": %d/%d" % utils.load_model_param(module_map[m], pretrain_dict['net'], prefix=m))
@@ -298,21 +299,7 @@ class SoftGroup(nn.Module):
             x_new[p] = x_split[i]
         return x_new
 
-    def forward_point_wise_network(self, input, input_map):
-        if self.cfg.dataset == 'scannetv2':
-            output = self.input_conv(input)
-            output = self.unet(output)
-            output = self.output_layer(output)
-            output_feats = output.features[input_map.long()]
-        elif self.cfg.dataset == 's3dis':
-            output_feats = self.forward_chop(input, input_map)
-            output_feats = self.rearange(output_feats)
-
-        semantic_scores = self.semantic_linear(output_feats)   # (N, nClass), float
-        semantic_preds = semantic_scores.max(1)[1]    # (N), long
-        pt_offsets = self.offset_linear(output_feats)  # (N, 3)
-
-    def forward(self, input, input_map, coords, batch_idxs, batch_offsets, epoch, training_mode, gt_instances=None, split=False):
+    def forward(self, input, input_map, coords, batch_idxs, batch_offsets, epoch, training_mode, gt_instances=None, split=False, semantic_only=False):
         '''
         :param input_map: (N), int, cuda
         :param coords: (N, 3), float, cuda
@@ -338,7 +325,7 @@ class SoftGroup(nn.Module):
         ret['semantic_scores'] = semantic_scores
         ret['pt_offsets'] = pt_offsets
 
-        if(epoch > self.prepare_epochs):
+        if(epoch > self.prepare_epochs) and not semantic_only:
             thr = self.cfg.score_thr
             semantic_scores = semantic_scores.softmax(dim=-1)
             proposals_idx_list = []
@@ -467,7 +454,7 @@ def model_fn_decorator(test=False):
         gt_instances = torch.cat(gt_instances)
         return gt_cls, gt_instances
 
-    def test_model_fn(batch, model, epoch):
+    def test_model_fn(batch, model, epoch, semantic_only=False):
         coords = batch['locs'].cuda()              # (N, 1 + 3), long, cuda, dimension 0 for batch_idx
         voxel_coords = batch['voxel_locs'].cuda()  # (M, 1 + 3), long, cuda
         p2v_map = batch['p2v_map'].cuda()          # (N), int, cuda
@@ -486,15 +473,15 @@ def model_fn_decorator(test=False):
         if cfg.dataset == 'scannetv2':
             input_ = spconv.SparseConvTensor(voxel_feats, voxel_coords.int(), spatial_shape, 1)
 
-            ret = model(input_, p2v_map, coords_float, coords[:, 0].int(), batch_offsets, epoch, 'test')
+            ret = model(input_, p2v_map, coords_float, coords[:, 0].int(), batch_offsets, epoch, 'test', semantic_only=semantic_only)
         elif cfg.dataset == 's3dis':
             input_ = spconv.SparseConvTensor(voxel_feats, voxel_coords.int(), spatial_shape, 4)
             batch_idxs = torch.zeros_like(coords[:, 0].int())
-            ret = model(input_, p2v_map, coords_float, batch_idxs, batch_offsets, epoch, 'test', split=True)
+            ret = model(input_, p2v_map, coords_float, batch_idxs, batch_offsets, epoch, 'test', split=True, semantic_only=semantic_only)
         semantic_scores = ret['semantic_scores']  # (N, nClass) float32, cuda
         pt_offsets = ret['pt_offsets']            # (N, 3), float32, cuda
 
-        if (epoch > cfg.prepare_epochs):
+        if (epoch > cfg.prepare_epochs) and not semantic_only:
             scores_batch_idxs, cls_scores, scores, proposals_idx, proposals_offset, mask_scores = ret['proposal_scores']
 
         # preds
@@ -502,14 +489,14 @@ def model_fn_decorator(test=False):
             preds = {}
             preds['semantic'] = semantic_scores
             preds['pt_offsets'] = pt_offsets
-            if (epoch > cfg.prepare_epochs):
+            if (epoch > cfg.prepare_epochs) and not semantic_only:
                 preds['score'] = scores
                 preds['cls_score'] = cls_scores
                 preds['proposals'] = (scores_batch_idxs, proposals_idx, proposals_offset, mask_scores)
 
         return preds
         
-    def model_fn(batch, model, epoch):
+    def model_fn(batch, model, epoch, semantic_only=False):
         # batch {'locs': locs, 'voxel_locs': voxel_locs, 'p2v_map': p2v_map, 'v2p_map': v2p_map,
         # 'locs_float': locs_float, 'feats': feats, 'labels': labels, 'instance_labels': instance_labels,
         # 'instance_info': instance_infos, 'instance_pointnum': instance_pointnum,
@@ -537,13 +524,11 @@ def model_fn_decorator(test=False):
 
         input_ = spconv.SparseConvTensor(voxel_feats, voxel_coords.int(), spatial_shape, cfg.batch_size)
 
-        # gt_cls, gt_instances = get_gt_instances(labels, instance_labels)
-        gt_instances = None
-        ret = model(input_, p2v_map, coords_float, coords[:, 0].int(), batch_offsets, epoch, 'train', gt_instances=gt_instances)
+        ret = model(input_, p2v_map, coords_float, coords[:, 0].int(), batch_offsets, epoch, 'train', semantic_only=semantic_only)
         semantic_scores = ret['semantic_scores'] # (N, nClass) float32, cuda
         pt_offsets = ret['pt_offsets']           # (N, 3), float32, cuda
         
-        if(epoch > cfg.prepare_epochs):
+        if(epoch > cfg.prepare_epochs) and not semantic_only:
             scores_batch_idxs, cls_scores, scores, proposals_idx, proposals_offset, mask_scores = ret['proposal_scores']
             # scores: (nProposal, 1) float, cuda
             # proposals_idx: (sumNPoint, 2), int, cpu, [:, 0] for cluster_id, [:, 1] for corresponding point idxs in N
@@ -555,17 +540,17 @@ def model_fn_decorator(test=False):
         loss_inp['semantic_scores'] = (semantic_scores, labels)
         loss_inp['pt_offsets'] = (pt_offsets, coords_float, instance_info, instance_labels)
 
-        if(epoch > cfg.prepare_epochs):
+        if(epoch > cfg.prepare_epochs) and not semantic_only:
             loss_inp['proposal_scores'] = (scores_batch_idxs, cls_scores, scores, proposals_idx, proposals_offset, instance_pointnum, instance_cls, mask_scores)
 
-        loss, loss_out = loss_fn(loss_inp, epoch)
+        loss, loss_out = loss_fn(loss_inp, epoch, semantic_only=semantic_only)
 
         # accuracy / visual_dict / meter_dict
         with torch.no_grad():
             preds = {}
             preds['semantic'] = semantic_scores
             preds['pt_offsets'] = pt_offsets
-            if(epoch > cfg.prepare_epochs):
+            if(epoch > cfg.prepare_epochs) and not semantic_only:
                 preds['score'] = scores
                 preds['proposals'] = (proposals_idx, proposals_offset)
 
@@ -582,7 +567,7 @@ def model_fn_decorator(test=False):
         return loss, preds, visual_dict, meter_dict
 
 
-    def loss_fn(loss_inp, epoch):
+    def loss_fn(loss_inp, epoch, semantic_only=False):
 
         loss_out = {}
 
@@ -612,7 +597,7 @@ def model_fn_decorator(test=False):
         offset_norm_loss = torch.sum(pt_dist * valid) / (torch.sum(valid) + 1e-6)
         loss_out['offset_norm_loss'] = (offset_norm_loss, valid.sum())
 
-        if (epoch > cfg.prepare_epochs):
+        if (epoch > cfg.prepare_epochs) and not semantic_only:
             '''score and mask loss'''
             
             scores_batch_idxs, cls_scores, scores, proposals_idx, proposals_offset, instance_pointnum, instance_cls, mask_scores = loss_inp['proposal_scores']
@@ -652,8 +637,8 @@ def model_fn_decorator(test=False):
             pos_gt_inds = gt_inds[pos_inds]
 
             # compute cls loss. follow detection convention: 0 -> K - 1 are fg, K is bg
-            labels = fg_instance_cls.new_full((fg_ious_on_cluster.size(0), ), cfg.classes - 2)  # ignore 2 first classes
-            labels[pos_inds] = fg_instance_cls[pos_gt_inds] - 2
+            labels = fg_instance_cls.new_full((fg_ious_on_cluster.size(0), ), cfg.classes)
+            labels[pos_inds] = fg_instance_cls[pos_gt_inds]
             cls_loss = F.cross_entropy(cls_scores, labels)
             loss_out['cls_loss'] = (cls_loss, labels.size(0))
            
@@ -688,7 +673,7 @@ def model_fn_decorator(test=False):
             # gt_scores = get_segmented_scores(gt_ious, cfg.fg_thresh, cfg.bg_thresh)
 
             slice_inds = torch.arange(0, labels.size(0), dtype=torch.long, device=labels.device)
-            score_weight = (labels < cfg.classes - 2).float()
+            score_weight = (labels < cfg.classes).float()
             score_slice = scores[slice_inds, labels]
             score_loss = F.mse_loss(score_slice, gt_ious, reduction='none')
             score_loss = (score_loss * score_weight).sum() / (score_weight.sum() + 1)
@@ -698,29 +683,12 @@ def model_fn_decorator(test=False):
 
         '''total loss'''
         loss = cfg.loss_weight[0] * semantic_loss + cfg.loss_weight[1] * offset_norm_loss
-        if(epoch > cfg.prepare_epochs):
+        if(epoch > cfg.prepare_epochs) and not semantic_only:
             loss += (cfg.loss_weight[2] * cls_loss)
             loss += (cfg.loss_weight[3] * mask_loss)
             loss += (cfg.loss_weight[4] * score_loss)
 
         return loss, loss_out
-
-
-    def get_segmented_scores(scores, fg_thresh=1.0, bg_thresh=0.0):
-        '''
-        :param scores: (N), float, 0~1
-        :return: segmented_scores: (N), float 0~1, >fg_thresh: 1, <bg_thresh: 0, mid: linear
-        '''
-        fg_mask = scores > fg_thresh
-        bg_mask = scores < bg_thresh
-        interval_mask = (fg_mask == 0) & (bg_mask == 0)
-
-        segmented_scores = (fg_mask > 0).float()
-        k = 1 / (fg_thresh - bg_thresh + 1e-5)
-        b = bg_thresh / (bg_thresh - fg_thresh + 1e-5)
-        segmented_scores[interval_mask] = scores[interval_mask] * k + b
-
-        return segmented_scores
 
     if test:
         fn = test_model_fn

@@ -296,7 +296,7 @@ if __name__ == '__main__':
     else:
         print("Error: no model version " + model_name)
         exit(0)
-    model = Network(cfg)
+    model = Network(cfg, pretrained=False)
 
     use_cuda = torch.cuda.is_available()
     logger.info('cuda available: {}'.format(use_cuda))

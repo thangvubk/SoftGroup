@@ -146,9 +146,10 @@ class Dataset:
             # instance_pointnum
             instance_pointnum.append(inst_idx_i[0].size)
             cls_loc = inst_idx_i[0][0]
-            instance_cls.append(label[cls_loc])
-        assert (0 not in instance_cls) and (1 not in instance_cls)  # sanity check stuff cls
 
+            # ignore 2 first classes (floor, ceil)
+            cls = label[cls_loc] - 2 if label[cls_loc] != -100 else label[cls_loc] 
+            instance_cls.append(cls)  
         return instance_num, {"instance_info": instance_info, "instance_pointnum": instance_pointnum,
                               "instance_cls": instance_cls}
 

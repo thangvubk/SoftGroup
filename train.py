@@ -58,7 +58,7 @@ def train_epoch(train_loader, model, model_fn, optimizer, epoch):
     
 
         # prepare input and forward
-        loss, _, visual_dict, meter_dict = model_fn(batch, model, epoch)
+        loss, _, visual_dict, meter_dict = model_fn(batch, model, epoch, semantic_only=cfg.semantic_only)
 
         # meter_dict
         for k, v in meter_dict.items():
@@ -114,7 +114,7 @@ def eval_epoch(val_loader, model, model_fn, epoch):
         for i, batch in enumerate(val_loader):
 
             # prepare input and forward
-            loss, preds, visual_dict, meter_dict = model_fn(batch, model, epoch)
+            loss, preds, visual_dict, meter_dict = model_fn(batch, model, epoch, semantic_only=cfg.semantic_only)
 
             for k, v in meter_dict.items():
                 if k not in am_dict.keys():
@@ -189,6 +189,11 @@ if __name__ == '__main__':
         else:
             print("Error: no data loader - " + data_name)
             exit(0)
+    elif cfg.dataset == 's3dis' and data_name == 's3dis':
+        import data.s3dis_inst
+        dataset = data.s3dis_inst.Dataset()
+        dataset.trainLoader()
+        dataset.valLoader()
     else:
         raise NotImplementedError("Not yet supported")
 

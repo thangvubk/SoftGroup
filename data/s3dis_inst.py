@@ -258,7 +258,6 @@ class Dataset:
             # crop
             xyz, valid_idxs = self.crop(xyz)
             if valid_idxs.sum() == 0: # handle some corner cases
-                print('bad epoch')
                 continue
 
             xyz_middle = xyz_middle[valid_idxs]
