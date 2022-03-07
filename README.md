@@ -35,15 +35,15 @@ Download the pretrained HAIS model at [here](https://drive.google.com/file/d/1XG
 ### Training S3DIS dataset
 First, finetune the pretrained HAIS point-wise prediction network (backbone) on S3DIS.
 ```
-python train.py --config config/softgroup_backbone_s3dis.yaml
+python train.py --config config/softgroup_fold5_backbone_s3dis.yaml
 ```
 Then, train model from frozen backbone.
 ```
-python train.py --config config/softgroup_default_s3dis.yaml
+python train.py --config config/softgroup_fold5_default_s3dis.yaml
 ```
 
 ### Training ScanNet V2 dataset
-Training on ScanNet doesnot require finetuning the backbone. Just frozen pretrained backbone and train the model.
+Training on ScanNet doesnot require finetuning the backbone. Just freeze pretrained backbone and train the model.
 ```
 python train.py --config config/softgroup_default_scannet.yaml
 ```
