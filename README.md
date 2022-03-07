@@ -39,7 +39,7 @@ python train.py --config config/softgroup_backbone_s3dis.yaml
 ```
 Then, train model from frozen backbone.
 ```
-python train --config config/softgroup_default_s3dis.yaml
+python train.py --config config/softgroup_default_s3dis.yaml
 ```
 
 ### Training ScanNet V2 dataset
