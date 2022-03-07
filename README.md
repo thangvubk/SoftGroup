@@ -30,7 +30,23 @@ Please refer to [data preparation](dataset/README.md) for preparing the S3DIS an
 | ScanNet v2 | 46.0 |  67.6 |  78.9 | [model](https://drive.google.com/file/d/1Gt1JUXXB-sBtAeuot29crAUnBwcXW7rN/view?usp=sharing) |
 
 ## Training
-Due to merging the code for S3DIS and ScanNet datasets. The training details will be out soon!
+We use the checkpoint of [HAIS](https://github.com/hustvl/HAIS) as pretrained backbone. 
+Download the pretrained HAIS model at [here](https://drive.google.com/file/d/1XGNswNrbjm33SwpemYxVEoK4o46EOazd/view) at put it in ``SoftGroup/`` directory.
+### Training S3DIS dataset
+First, finetune the pretrained HAIS point-wise prediction network (backbone) on S3DIS.
+```
+python train.py --config config/softgroup_backbone_s3dis.yaml
+```
+Then, train model from frozen backbone.
+```
+python train --config config/softgroup_default_s3dis.yaml
+```
+
+### Training ScanNet V2 dataset
+Training on ScanNet doesnot require finetuning the backbone. Just frozen pretrained backbone and train the model.
+```
+python train.py --config config/softgroup_default_scannet.yaml
+```
 
 ## Inference
 Testing for S3DIS dataset.
