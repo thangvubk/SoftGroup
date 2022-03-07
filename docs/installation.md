@@ -24,7 +24,6 @@ git clone https://github.com/thangvubk/SoftGroup.git --recursive
 ```
 cd SoftGroup
 pip install -r requirements.txt
-conda install -c bioconda google-sparsehash 
 ```
 
 4\) Install spconv 
