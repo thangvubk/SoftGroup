@@ -67,10 +67,10 @@ python visualize_open3d.py --data_path {} --prediction_path {} --data_split {} -
 Please refer to `visualize_open3d.py` for more details.
 
 ## Citation
-If you find our work helpful for your research. Please cite our paper.
+If you find our work helpful for your research. Please consider citing our paper.
 
 ```
-@inproceedings{vu2019softgroup,
+@inproceedings{vu2022softgroup,
   title={SoftGroup for 3D Instance Segmentation on 3D Point Clouds},
   author={Vu, Thang and Kim, Kookhoi and Luu, Tung M. and Nguyen, Xuan Thanh and Yoo, Chang D.},
   booktitle={CVPR},
