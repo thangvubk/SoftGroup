@@ -8,7 +8,6 @@ DATA:
   data_root: dataset
   dataset: scannetv2
   filename_suffix: _inst_nostuff.pth
-
   semantic_classes: 20
   classes: 18
   class_numpoint_mean: [-1., -1., 3917., 12056., 2303.,
@@ -16,7 +15,6 @@ DATA:
                         1003., 3317., 4912., 10221., 3889.,
                         4136., 2120., 945., 3967., 2589.]
   ignore_label: -100
-
   input_channel: 3
   scale: 50   # voxel_size = 1 / scale, scale 50 -> voxel_size 0.02m
   batch_size: 4
@@ -51,12 +49,9 @@ TRAIN:
   pretrain_path: 'hais_ckpt.pth'
   pretrain_module: ['input_conv', 'unet', 'output_layer', 'semantic_linear', 'offset_linear', 'intra_ins_unet', 'intra_ins_outputlayer']
   fix_module: ['input_conv', 'unet', 'output_layer', 'semantic_linear', 'offset_linear']
-
   point_aggr_radius: 0.04
   cluster_shift_meanActive: 300
   prepare_epochs: -1
-  using_set_aggr_in_training: False
-  using_set_aggr_in_testing: False
   max_proposal_num: 200
   iou_thr: 0.5
   score_thr: 0.2
@@ -66,7 +61,6 @@ TEST:
   test_epoch: 500
   test_workers: 16
   test_seed: 567
-
   using_NMS: False
   TEST_NMS_THRESH: 0.3
   TEST_SCORE_THRESH: -1
@@ -78,9 +72,3 @@ TEST:
   save_instance: False
 
   test_mask_score_thre: -0.5 # bias fg << bg
-
-
-  
-
-
-
