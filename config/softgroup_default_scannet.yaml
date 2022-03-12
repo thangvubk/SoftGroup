@@ -1,7 +1,7 @@
 GENERAL:
   task: train  # train, test
   manual_seed: 123
-  model_dir: model/hais/hais.py
+  model_dir: model/softgroup/softgroup.py
   dataset_dir: data/scannetv2_inst.py
 
 DATA:
@@ -25,7 +25,7 @@ DATA:
   mode: 4 # 4=mean
 
 STRUCTURE:
-  model_name: hais
+  model_name: softgroup
   width: 32
   block_residual: True
   block_reps: 2

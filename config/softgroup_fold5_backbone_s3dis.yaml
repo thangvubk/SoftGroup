@@ -47,7 +47,7 @@ TRAIN:
   score_scale: 50 # the minimal voxel size is 2cm
   score_fullscale: 20  
   score_mode: 4 # mean
-  pretrain_path: 'softgroup_ckpt.pth'
+  pretrain_path: 'hais_ckpt.pth'
   pretrain_module: ['input_conv', 'unet', 'output_layer']
   fix_module: []
 

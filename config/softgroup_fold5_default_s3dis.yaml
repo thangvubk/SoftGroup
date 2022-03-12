@@ -92,7 +92,7 @@ TEST:
   eval: True
   save_semantic: False
   save_pt_offsets: False
-  save_instance: True
+  save_instance: False
 
   test_mask_score_thre: -0.5 # bias fg << bg
 
