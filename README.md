@@ -49,13 +49,24 @@ python train.py --config config/softgroup_default_scannet.yaml
 ```
 
 ## Inference
-Testing for S3DIS dataset.
+### Testing for S3DIS dataset.
 ```
 CUDA_VISIBLE_DEVICES=0 python test_s3dis.py --config config/softgroup_fold5_phase2_s3dis.yaml --pretrain $PATH_TO_PRETRAIN_MODEL$
 ```
-Testing for ScanNet V2 dataset.
+### Testing for ScanNet V2 dataset.
 ```
 CUDA_VISIBLE_DEVICES=0 python test.py --config config/softgroup_default_scannet.yaml --pretrain $PATH_TO_PRETRAIN_MODEL$
+```
+### Bounding box evaluation of ScanNet V2 dataset.
+We provide script to evaluate detection performance on axis-aligned boxes from predicted/ground-truth instance.
+- Step 1: Change ``save_instance`` to ``True`` in [config file](https://github.com/thangvubk/SoftGroup/blob/99ffb9756e553e0edfb2c43e2ab6a6f646892bb5/config/softgroup_default_scannet.yaml#L72).
+- Step 2: Run evaluation code.
+```
+CUDA_VISIBLE_DEVICES=0 python test.py --config config/softgroup_default_scannet.yaml --pretrain $PATH_TO_PRETRAIN_MODEL$
+```
+- Step 3: Evaluate detection performance.
+```
+python eval_det.py
 ```
 
 ## Visualization
