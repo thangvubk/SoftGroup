@@ -24,10 +24,10 @@ Please refer to [installation guide](docs/installation.md).
 Please refer to [data preparation](dataset/README.md) for preparing the S3DIS and ScanNet v2 dataset.
 
 ## Pretrained models
-|   Dataset  |  AP  | AP_50 | AP_25 |                                           Download                                          |
-|:----------:|:----:|:-----:|:-----:|:-------------------------------------------------------------------------------------------:|
-|    S3DIS   | 51.4 |  66.5 |  75.4 | [model](https://drive.google.com/file/d/1RodfMTUC-0YWs47kx8lj-i0jbDyM9PO6/view?usp=sharing) |
-| ScanNet v2 | 46.0 |  67.6 |  78.9 | [model](https://drive.google.com/file/d/1Gt1JUXXB-sBtAeuot29crAUnBwcXW7rN/view?usp=sharing) |
+|   Dataset  |  AP  | AP_50 | AP_25 | Bbox AP_50 | Bbox AP_25 |                                           Download                                          |
+|:----------:|:----:|:-----:|:-----:|:-----:|:-----:|:-------------------------------------------------------------------------------------------:|
+|    S3DIS   | 51.4 |  66.5 |  75.4 |  -    |  -    | [model](https://drive.google.com/file/d/1RodfMTUC-0YWs47kx8lj-i0jbDyM9PO6/view?usp=sharing) |
+| ScanNet v2 | 46.0 |  67.6 |  78.9 |  59.4 |  71.6 | [model](https://drive.google.com/file/d/1Gt1JUXXB-sBtAeuot29crAUnBwcXW7rN/view?usp=sharing) |
 
 ## Training
 We use the checkpoint of [HAIS](https://github.com/hustvl/HAIS) as pretrained backbone. 
