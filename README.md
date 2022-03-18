@@ -77,6 +77,12 @@ python visualize_open3d.py --data_path {} --prediction_path {} --data_split {} -
 ```
 Please refer to `visualize_open3d.py` for more details.
 
+## TODO
+
+- [ ] Benchmark on spconv 2.x for better speed.
+- [ ] Code refactor
+- [ ] Distributed training
+
 ## Citation
 If you find our work helpful for your research. Please consider citing our paper.
 
