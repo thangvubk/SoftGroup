@@ -350,10 +350,7 @@ class SoftGroup(nn.Module):
                 idx, start_len = softgroup_ops.ballquery_batch_p(coords_ + pt_offsets_, \
                     batch_idxs_, batch_offsets_, self.point_aggr_radius, self.cluster_shift_meanActive)
                 
-                using_set_aggr_in_training = getattr(self.cfg, 'using_set_aggr_in_training', True)
-                using_set_aggr_in_testing = getattr(self.cfg, 'using_set_aggr_in_testing', True)
-                using_set_aggr = using_set_aggr_in_training if training_mode == 'train' else using_set_aggr_in_testing
-
+                using_set_aggr = False  #TODO refactor this
                 class_numpoint_mean = torch.tensor(self.cfg.class_numpoint_mean, dtype=torch.float32)
                 proposals_idx, proposals_offset = softgroup_ops.hierarchical_aggregation(
                     class_numpoint_mean, semantic_preds_cpu, (coords_ + pt_offsets_).cpu(), idx.cpu(), start_len.cpu(),
