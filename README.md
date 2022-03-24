@@ -1,8 +1,8 @@
 # SoftGroup
-[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/softgroup-for-3d-instance-segmentation-on/3d-instance-segmentation-on-scannetv2)](https://paperswithcode.com/sota/3d-instance-segmentation-on-scannetv2?p=softgroup-for-3d-instance-segmentation-on) [![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/softgroup-for-3d-instance-segmentation-on/3d-instance-segmentation-on-s3dis)](https://paperswithcode.com/sota/3d-instance-segmentation-on-s3dis?p=softgroup-for-3d-instance-segmentation-on)
+[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/softgroup-for-3d-instance-segmentation-on/3d-instance-segmentation-on-scannetv2)](https://paperswithcode.com/sota/3d-instance-segmentation-on-scannetv2?p=softgroup-for-3d-instance-segmentation-on) [![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/softgroup-for-3d-instance-segmentation-on/3d-instance-segmentation-on-s3dis)](https://paperswithcode.com/sota/3d-instance-segmentation-on-s3dis?p=softgroup-for-3d-instance-segmentation-on) [![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/softgroup-for-3d-instance-segmentation-on/3d-object-detection-on-scannetv2)](https://paperswithcode.com/sota/3d-object-detection-on-scannetv2?p=softgroup-for-3d-instance-segmentation-on)
 ![Architecture](./docs/architecture.png)
 
-We provide code for reproducing results of the paper **SoftGroup for 3D Instance Segmentation on Point Clouds (CVPR 2022)**
+We provide code for reproducing results of the paper [**SoftGroup for 3D Instance Segmentation on Point Clouds (CVPR 2022)**](https://arxiv.org/abs/2203.01509)
 
 Author: Thang Vu, Kookhoi Kim, Tung M. Luu, Xuan Thanh Nguyen, and Chang D. Yoo.
 
@@ -51,7 +51,7 @@ python train.py --config config/softgroup_default_scannet.yaml
 ## Inference
 ### Testing for S3DIS dataset.
 ```
-CUDA_VISIBLE_DEVICES=0 python test_s3dis.py --config config/softgroup_fold5_phase2_s3dis.yaml --pretrain $PATH_TO_PRETRAIN_MODEL$
+CUDA_VISIBLE_DEVICES=0 python test_s3dis.py --config config/softgroup_fold5_default_s3dis.yaml --pretrain $PATH_TO_PRETRAIN_MODEL$
 ```
 ### Testing for ScanNet V2 dataset.
 ```
@@ -79,7 +79,7 @@ Please refer to `visualize_open3d.py` for more details.
 
 ## TODO
 
-- [ ] Benchmark on spconv 2.x for better speed.
+- [x] Benchmark on spconv 2.x for better speed. (In progress)
 - [ ] Code refactor
 - [ ] Distributed training
 
