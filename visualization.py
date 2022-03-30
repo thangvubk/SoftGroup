@@ -3,7 +3,6 @@ import os, glob, argparse
 import torch
 from operator import itemgetter
 import cv2
-import open3d as o3d
 import glob
 
 COLOR_DETECTRON2 = np.array(
@@ -115,12 +114,21 @@ SEMANTIC_IDX2NAME = {1: 'wall', 2: 'floor', 3: 'cabinet', 4: 'bed', 5: 'chair', 
 
 
 def get_coords_color(opt):
-    input_file = os.path.join(opt.data_path, opt.data_split, opt.room_name + '_inst_nostuff.pth')
-    assert os.path.isfile(input_file), 'File not exist - {}.'.format(input_file)
-    if opt.data_split == 'test':
-        xyz, rgb = torch.load(input_file)
+    if opt.dataset == 's3dis':
+        assert opt.data_split in ['Area_1', 'Area_2', 'Area_3', 'Area_4', 'Area_5', 'Area_6'],\
+            'data_split for s3dis should be one of [Area_1, Area_2, Area_3, Area_4, Area_5, Area_6]'
+        input_file = os.path.join('dataset', opt.dataset, 'preprocess', opt.room_name + '_inst_nostuff.pth')
+        assert os.path.isfile(input_file), 'File not exist - {}.'.format(input_file)
+        xyz, rgb, label, inst_label, _, _ = torch.load(input_file)
+        # update variable to match scannet format
+        opt.data_split = os.path.join('val', opt.data_split)
     else:
-        xyz, rgb, label, inst_label = torch.load(input_file)
+        input_file = os.path.join('dataset', opt.dataset, opt.data_split, opt.room_name + '_inst_nostuff.pth')
+        assert os.path.isfile(input_file), 'File not exist - {}.'.format(input_file)
+        if opt.data_split == 'test':
+            xyz, rgb = torch.load(input_file)
+        else:
+            xyz, rgb, label, inst_label = torch.load(input_file)
 
     rgb = (rgb + 1) * 127.5
 
@@ -182,13 +190,20 @@ def get_coords_color(opt):
         ins_pointnum = np.zeros(ins_num)
         inst_label = -100 * np.ones(rgb.shape[0]).astype(np.int)
 
-        for i in range(len(masks) - 1, -1, -1):
+        # sort score such that high score has high priority for visualization
+        scores = np.array([float(x[-1]) for x in masks])
+        sort_inds = np.argsort(scores)[::-1]
+        for i_ in range(len(masks) - 1, -1, -1):
+            i = sort_inds[i_]
             mask_path = os.path.join(opt.prediction_path, opt.data_split, masks[i][0])
             assert os.path.isfile(mask_path), mask_path
             if (float(masks[i][2]) < 0.09):
                 continue
             mask = np.loadtxt(mask_path).astype(np.int)
-            print('{} {}: {} pointnum: {}'.format(i, masks[i], SEMANTIC_IDX2NAME[int(masks[i][1])], mask.sum()))      
+            if opt.dataset == 'scannet':
+                print('{} {}: {} pointnum: {}'.format(i, masks[i], SEMANTIC_IDX2NAME[int(masks[i][1])], mask.sum()))      
+            else:
+                print('{} {}: pointnum: {}'.format(i, masks[i], mask.sum()))
             ins_pointnum[i] = mask.sum()
             inst_label[mask == 1] = i  
         sort_idx = np.argsort(ins_pointnum)[::-1]
@@ -205,36 +220,62 @@ def get_coords_color(opt):
     return xyz, rgb
 
 
+def write_ply(verts, colors, indices, output_file):
+    if colors is None:
+        colors = np.zeros_like(verts)
+    if indices is None:
+        indices = []
+
+    file = open(output_file, 'w')
+    file.write('ply \n')
+    file.write('format ascii 1.0\n')
+    file.write('element vertex {:d}\n'.format(len(verts)))
+    file.write('property float x\n')
+    file.write('property float y\n')
+    file.write('property float z\n')
+    file.write('property uchar red\n')
+    file.write('property uchar green\n')
+    file.write('property uchar blue\n')
+    file.write('element face {:d}\n'.format(len(indices)))
+    file.write('property list uchar uint vertex_indices\n')
+    file.write('end_header\n')
+    for vert, color in zip(verts, colors):
+        file.write('{:f} {:f} {:f} {:d} {:d} {:d}\n'.format(
+            vert[0], vert[1], vert[2], int(color[0] * 255),
+            int(color[1] * 255), int(color[2] * 255)))
+    for ind in indices:
+        file.write('3 {:d} {:d} {:d}\n'.format(ind[0], ind[1], ind[2]))
+    file.close()
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--data_path', help='path to the dataset files')
-    parser.add_argument('--prediction_path', help='path to the prediction results')
-    parser.add_argument('--data_split', help='train / val / test', default='val')
-    parser.add_argument('--room_name', help='room_name', default='scene0146_01')
-    parser.add_argument('--task', help='input / semantic_gt / semantic_pred / offset_semantic_pred / instance_gt / instance_pred', default='input')
+    parser.add_argument('--dataset', choices=['scannet', 's3dis'], help='dataset for visualization', default='scannet')
+    parser.add_argument('--prediction_path', help='path to the prediction results',
+                        default='./exp/scannetv2/softgroup/softgroup_default_scannet/result')
+    parser.add_argument('--data_split', help='train/val/test for scannet or Area_ID for s3dis', default='val')
+    parser.add_argument('--room_name', help='room_name', default='scene0011_00')
+    parser.add_argument('--task', help='input / semantic_gt / semantic_pred / offset_semantic_pred / instance_gt / instance_pred',
+                        default='instance_pred')
+    parser.add_argument('--out', help='output point cloud file in FILE.ply format')
     opt = parser.parse_args()
-
-
 
     xyz, rgb = get_coords_color(opt)
     points = xyz[:, :3]
     colors = rgb / 255
 
-    pc = o3d.geometry.PointCloud()
-    pc.points = o3d.utility.Vector3dVector(points)
-    pc.colors = o3d.utility.Vector3dVector(colors)
+    if opt.out != '':
+        assert '.ply' in opt.out, 'output cloud file should be in FILE.ply format'
+        write_ply(points, colors, None, opt.out)
+    else:
+        import open3d as o3d
+        pc = o3d.geometry.PointCloud()
+        pc.points = o3d.utility.Vector3dVector(points)
+        pc.colors = o3d.utility.Vector3dVector(colors)
 
-    vis = o3d.visualization.Visualizer()
-    vis.create_window()
-    vis.add_geometry(pc)
-    vis.get_render_option().point_size = 1.5
-    vis.run()
-    vis.destroy_window()
-
-    
-
-
-
-
-
-
+        vis = o3d.visualization.Visualizer()
+        vis.create_window()
+        vis.add_geometry(pc)
+        vis.get_render_option().point_size = 1.5
+        vis.run()
+        vis.destroy_window()

@@ -70,12 +70,7 @@ python eval_det.py
 ```
 
 ## Visualization
-We provide visualization tools based on Open3D (tested on Open3D 0.8.0).
-```
-pip install open3D==0.8.0
-python visualize_open3d.py --data_path {} --prediction_path {} --data_split {} --room_name {} --task {}
-```
-Please refer to `visualize_open3d.py` for more details.
+Please refer to [visualization guide](docs/visualization.md) for visualizing ScanNet and S3DIS results.
 
 ## TODO
 
