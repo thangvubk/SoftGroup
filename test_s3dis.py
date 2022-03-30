@@ -221,13 +221,11 @@ def test(model, model_fn, data_name, epoch):
                     clusters_i = clusters[proposal_id].cpu().numpy()  # (N)
                     semantic_label = semantic_label = cluster_semantic_id[proposal_id]
                     score = cluster_scores[proposal_id]
-                    f.write('predicted_masks/{}_{:03d}.npy {} {:.4f}'.format( \
+                    f.write('predicted_masks/{}_{:03d}.txt {} {:.4f}'.format( \
                         test_scene_name, proposal_id, semantic_label, score))
                     if proposal_id < nclusters - 1:
                         f.write('\n')
-                    with open(os.path.join(result_dir, 'predicted_masks', test_scene_name + '_%03d.npy' % (proposal_id)), 'wb') as mask_f:
-                        np.save(mask_f, clusters_i)
-                    # np.savetxt(os.path.join(result_dir, 'predicted_masks', test_scene_name + '_%03d.npy' % (proposal_id)), clusters_i, fmt='%d')
+                    np.savetxt(os.path.join(result_dir, 'predicted_masks', test_scene_name + '_%03d.txt' % (proposal_id)), clusters_i, fmt='%d')
                 f.close()
 
 
