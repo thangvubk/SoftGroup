@@ -2,7 +2,7 @@
 [![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/softgroup-for-3d-instance-segmentation-on/3d-instance-segmentation-on-scannetv2)](https://paperswithcode.com/sota/3d-instance-segmentation-on-scannetv2?p=softgroup-for-3d-instance-segmentation-on) [![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/softgroup-for-3d-instance-segmentation-on/3d-instance-segmentation-on-s3dis)](https://paperswithcode.com/sota/3d-instance-segmentation-on-s3dis?p=softgroup-for-3d-instance-segmentation-on) [![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/softgroup-for-3d-instance-segmentation-on/3d-object-detection-on-scannetv2)](https://paperswithcode.com/sota/3d-object-detection-on-scannetv2?p=softgroup-for-3d-instance-segmentation-on)
 ![Architecture](./docs/architecture.png)
 
-We provide code for reproducing results of the paper [**SoftGroup for 3D Instance Segmentation on Point Clouds (CVPR 2022)**](https://arxiv.org/abs/2203.01509)
+We provide code for reproducing results of the paper [**SoftGroup for 3D Instance Segmentation on Point Clouds (CVPR 2022 Oral)**](https://arxiv.org/abs/2203.01509)
 
 Author: Thang Vu, Kookhoi Kim, Tung M. Luu, Xuan Thanh Nguyen, and Chang D. Yoo.
 
@@ -89,3 +89,5 @@ If you find our work helpful for your research. Please consider citing our paper
   year={2022}
 }
 ```
+## References
+Code is built based on [HAIS](https://github.com/hustvl/HAIS), [PointGroup](https://github.com/dvlab-research/PointGroup), and [spconv](https://github.com/traveller59/spconv)
