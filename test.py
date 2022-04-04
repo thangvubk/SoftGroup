@@ -4,11 +4,23 @@ import numpy as np
 import random
 import os
 
-from util.config import cfg
-cfg.task = 'test'
+# from util.config import cfg
+# cfg.task = 'test'
 from util.log import logger
 import util.utils as utils
 import util.eval as eval
+
+import yaml
+import argparse
+from model.softgroup import SoftGroup
+from munch import Munch
+
+def get_args():
+    parser = argparse.ArgumentParser('SoftGroup')
+    parser.add_argument('config', type=str, help='path to config file')
+    parser.add_argument('checkpoint', type=str, help='path to checkpoint')
+    args = parser.parse_args()
+    return args
 
 def init():
     global result_dir
@@ -279,37 +291,56 @@ def non_max_suppression(ious, scores, threshold):
 
 
 if __name__ == '__main__':
+
+    test_seed = 567
+    random.seed(test_seed)
+    np.random.seed(test_seed)
+    torch.manual_seed(test_seed)
+    torch.cuda.manual_seed_all(test_seed)
+
+
+    args = get_args()
+    cfg = Munch.fromDict(yaml.safe_load(open(args.config, 'r')))
     torch.backends.cudnn.enabled = False
-    init()
+    # init()
 
-    exp_name = cfg.config.split('/')[-1][:-5]
-    model_name = exp_name.split('_')[0]
-    data_name = exp_name.split('_')[-1]
+    # exp_name = cfg.config.split('/')[-1][:-5]
+    # model_name = exp_name.split('_')[0]
+    # data_name = exp_name.split('_')[-1]
 
-    logger.info('=> creating model ...')
-    logger.info('Classes: {}'.format(cfg.classes))
+    # logger.info('=> creating model ...')
+    # logger.info('Classes: {}'.format(cfg.classes))
 
-    if model_name == 'softgroup':
-        from model.softgroup.softgroup import SoftGroup as Network
-        from model.softgroup.softgroup import model_fn_decorator
-    
-    else:
-        print("Error: no model version " + model_name)
-        exit(0)
-    model = Network(cfg, pretrained=False)
-
-    use_cuda = torch.cuda.is_available()
-    logger.info('cuda available: {}'.format(use_cuda))
-    assert use_cuda
-    model = model.cuda()
-
-    logger.info('#classifier parameters (model): {}'.format(sum([x.nelement() for x in model.parameters()])))
-    model_fn = model_fn_decorator(test=True)
+    model = SoftGroup(**cfg.model)
+    logger.info(f'Load state dict from {args.checkpoint}')
+    model = utils.load_checkpoint(model, args.checkpoint)
+    model.cuda()
 
     # load model
-    utils.checkpoint_restore(cfg, model, None, cfg.exp_path, cfg.config.split('/')[-1][:-5], 
-        use_cuda, cfg.test_epoch, dist=False, f=cfg.pretrain)      
+    # utils.checkpoint_restore(cfg, model, None, cfg.exp_path, cfg.config.split('/')[-1][:-5], 
+    #     use_cuda, cfg.test_epoch, dist=False, f=cfg.pretrain)      
     # resume from the latest epoch, or specify the epoch to restore
 
     # evaluate
-    test(model, model_fn, data_name, cfg.test_epoch)
+    logger.info('>>>>>>>>>>>>>>>> Start Evaluation >>>>>>>>>>>>>>>>')
+
+    from data.scannetv2_inst import Dataset
+    dataset = Dataset(**cfg.data.test)
+    dataset.valLoader()
+    dataloader = dataset.val_data_loader
+    total = 0
+    all_preds, all_gts = [], []
+
+    with torch.no_grad():
+        model = model.eval()
+
+        total_end1 = 0.
+        matches = {}
+        for i, batch in enumerate(dataloader):
+            print(i)
+            ret = model(batch)
+            all_preds.append(ret['det_ins'])
+            all_gts.append(ret['gt_ins'])
+        from evaluation import ScanNetEval
+        scannet_eval = ScanNetEval()
+        scannet_eval.evaluate(all_preds, all_gts)

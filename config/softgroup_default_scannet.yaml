@@ -4,6 +4,52 @@ GENERAL:
   model_dir: model/softgroup/softgroup.py
   dataset_dir: data/scannetv2_inst.py
 
+model:
+  channels: 32
+  num_blocks: 7
+  semantic_classes: 20
+  instance_classes: 18
+  semantic_only: False
+  ignore_label: -100
+  grouping_cfg:
+    radius: 0.04
+    mean_active: 300
+    class_numpoint_mean: [-1., -1., 3917., 12056., 2303.,
+                          8331., 3948., 3166., 5629., 11719.,
+                          1003., 3317., 4912., 10221., 3889.,
+                          4136., 2120., 945., 3967., 2589.]
+  instance_voxel_cfg:
+    scale: 50
+    spatial_shape: 20
+  test_cfg:
+    x4_split: False
+  fixed_modules: []
+
+data:
+  train:
+    data_root: 'dataset/scannetv2'
+    prefix: 'val'
+    suffix: '_inst_nostuff.pth'
+    voxel_cfg:
+      scale: 50
+      spatial_shape: [128, 512]
+      max_npoint: 250000
+  test:
+    data_root: 'dataset/scannetv2'
+    prefix: 'val'
+    suffix: '_inst_nostuff.pth'
+    voxel_cfg:
+      scale: 50
+      spatial_shape: [128, 512]
+      max_npoint: 250000
+  data_loader:
+    batch_size: 4
+    num_workers: 4
+      
+
+
+
+
 DATA:
   data_root: dataset
   dataset: scannetv2
@@ -30,7 +76,7 @@ STRUCTURE:
   use_coords: True
   semantic_only: False
 
-TRAIN:
+train:
   epochs: 500
   train_workers: 4 # data loader workers
   optim: Adam # Adam or SGD

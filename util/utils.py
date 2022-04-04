@@ -132,6 +132,10 @@ def checkpoint_save(model, optimizer, exp_path, exp_name, epoch, save_freq=16, u
         if not is_multiple(epoch, save_freq) and not is_power2(epoch):
             os.remove(f)
 
+def load_checkpoint(model, checkpoint, strict=False):
+    state_dict = torch.load(checkpoint)
+    model.load_state_dict(state_dict['net'], strict=False)
+    return model
 
 def load_model_param(model, pretrained_dict, prefix=""):
     # suppose every param in model should exist in pretrain_dict, but may differ in the prefix of the name
