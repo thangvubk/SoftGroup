@@ -75,7 +75,7 @@ Please refer to [visualization guide](docs/visualization.md) for visualizing Sca
 ## TODO
 
 - [x] Benchmark on spconv 2.x for better speed. (In progress)
-- [ ] Code refactor
+- [x] Code refactor (In progress)
 - [ ] Distributed training
 
 ## Citation
