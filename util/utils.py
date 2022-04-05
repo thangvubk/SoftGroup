@@ -134,7 +134,7 @@ def checkpoint_save(model, optimizer, exp_path, exp_name, epoch, save_freq=16, u
 
 def load_checkpoint(model, checkpoint, strict=False):
     state_dict = torch.load(checkpoint)
-    model.load_state_dict(state_dict['net'], strict=False)
+    model.load_state_dict(state_dict['net'], strict=strict)
     return model
 
 def load_model_param(model, pretrained_dict, prefix=""):

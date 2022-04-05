@@ -11,7 +11,13 @@ from lib.softgroup_ops.functions import softgroup_ops
 
 import torch.distributed as dist
 
+
 class Dataset:
+
+    CLASSES = ('cabinet', 'bed', 'chair', 'sofa', 'table', 'door', 'window', 'bookshelf', 'picture',
+               'counter', 'desk', 'curtain', 'refrigerator', 'shower curtain', 'toilet', 'sink',
+               'bathtub', 'otherfurniture')
+
     def __init__(self, data_root, prefix, suffix, voxel_cfg=None):
         self.data_root = data_root
         self.prefix = prefix
@@ -37,11 +43,13 @@ class Dataset:
         #     self.test_workers = cfg.test_workers
         #     cfg.batch_size = 1
 
-
     def trainLoader(self):
         train_file_names = []
         for path in self.paths:
-            file_names = sorted(glob.glob(os.path.join(self.data_root, self.dataset, 'train', '*' + self.filename_suffix)))
+            file_names = sorted(
+                glob.glob(
+                    os.path.join(self.data_root, self.dataset, 'train',
+                                 '*' + self.filename_suffix)))
         assert len(train_file_names) > 0
 
         self.train_files = [torch.load(i) for i in train_file_names]
@@ -49,12 +57,20 @@ class Dataset:
         logger.info('Training samples: {}'.format(len(self.train_files)))
 
         train_set = list(range(len(self.train_files)))
-        self.train_data_loader = DataLoader(train_set, batch_size=self.batch_size, collate_fn=self.trainMerge, num_workers=self.train_workers,
-                                            shuffle=True, sampler=None, drop_last=True, pin_memory=True)
-        
+        self.train_data_loader = DataLoader(
+            train_set,
+            batch_size=self.batch_size,
+            collate_fn=self.trainMerge,
+            num_workers=self.train_workers,
+            shuffle=True,
+            sampler=None,
+            drop_last=True,
+            pin_memory=True)
 
     def dist_trainLoader(self):
-        train_file_names = sorted(glob.glob(os.path.join(self.data_root, self.dataset, 'train', '*' + self.filename_suffix)))
+        train_file_names = sorted(
+            glob.glob(
+                os.path.join(self.data_root, self.dataset, 'train', '*' + self.filename_suffix)))
         self.train_files = [torch.load(i) for i in train_file_names]
 
         logger.info('Training samples: {}'.format(len(self.train_files)))
@@ -62,42 +78,57 @@ class Dataset:
         train_set = list(range(len(self.train_files)))
         # self.train_data_loader = DataLoader(train_set, batch_size=self.batch_size, collate_fn=self.trainMerge, num_workers=self.train_workers,
         #                                     shuffle=True, sampler=None, drop_last=True, pin_memory=True)
-        
+
         # world_size = dist.get_world_size()
         # rank = dist.get_rank()
         # self.data_sampler = torch.utils.data.distributed.DistributedSampler(train_set, num_replicas=world_size, rank=rank)
         self.data_sampler = torch.utils.data.distributed.DistributedSampler(train_set)
 
-        self.train_data_loader = DataLoader(train_set, batch_size=self.batch_size, 
-                                    collate_fn=self.trainMerge, 
-                                    num_workers=self.train_workers,
-                                    shuffle=False, sampler=self.data_sampler, 
-                                    drop_last=False, pin_memory=True)
-        
-
+        self.train_data_loader = DataLoader(
+            train_set,
+            batch_size=self.batch_size,
+            collate_fn=self.trainMerge,
+            num_workers=self.train_workers,
+            shuffle=False,
+            sampler=self.data_sampler,
+            drop_last=False,
+            pin_memory=True)
 
     def valLoader(self):
-        self.val_file_names = sorted(glob.glob(os.path.join(self.data_root, self.prefix, '*' + self.suffix)))
+        self.val_file_names = sorted(
+            glob.glob(os.path.join(self.data_root, self.prefix, '*' + self.suffix)))
         assert len(self.val_file_names) > 0
         # self.val_files = [torch.load(i) for i in val_file_names]
 
         logger.info('Validation samples: {}'.format(len(self.val_file_names)))
 
         val_set = list(range(len(self.val_file_names)))
-        self.val_data_loader = DataLoader(val_set, batch_size=1, collate_fn=self.valMerge, num_workers=16,
-                                          shuffle=False, drop_last=False, pin_memory=True)
-
+        self.val_data_loader = DataLoader(
+            val_set,
+            batch_size=1,
+            collate_fn=self.valMerge,
+            num_workers=16,
+            shuffle=False,
+            drop_last=False,
+            pin_memory=True)
 
     def testLoader(self):
-        self.test_file_names = sorted(glob.glob(os.path.join(self.data_root, self.prefix, '*' + self.suffix)))
+        self.test_file_names = sorted(
+            glob.glob(os.path.join(self.data_root, self.prefix, '*' + self.suffix)))
         assert len(self.test_file_names) > 0
         # self.test_files = [torch.load(i) for i in self.test_file_names]
 
         logger.info('Testing samples {}'.format(len(self.test_file_names)))
 
         test_set = list(np.arange(len(self.test_file_names)))
-        self.test_data_loader = DataLoader(test_set, batch_size=1, collate_fn=self.testMerge, num_workers=1,
-                                           shuffle=False, drop_last=False, pin_memory=True)
+        self.test_data_loader = DataLoader(
+            test_set,
+            batch_size=1,
+            collate_fn=self.testMerge,
+            num_workers=1,
+            shuffle=False,
+            drop_last=False,
+            pin_memory=True)
 
     # Elastic distortion
     def elastic(self, x, gran, mag):
@@ -105,7 +136,7 @@ class Dataset:
         blur1 = np.ones((1, 3, 1)).astype('float32') / 3
         blur2 = np.ones((1, 1, 3)).astype('float32') / 3
 
-        bb = np.abs(x).max(0).astype(np.int32)//gran + 3
+        bb = np.abs(x).max(0).astype(np.int32) // gran + 3
         noise = [np.random.randn(bb[0], bb[1], bb[2]).astype('float32') for _ in range(3)]
         noise = [scipy.ndimage.filters.convolve(n, blur0, mode='constant', cval=0) for n in noise]
         noise = [scipy.ndimage.filters.convolve(n, blur1, mode='constant', cval=0) for n in noise]
@@ -113,12 +144,16 @@ class Dataset:
         noise = [scipy.ndimage.filters.convolve(n, blur0, mode='constant', cval=0) for n in noise]
         noise = [scipy.ndimage.filters.convolve(n, blur1, mode='constant', cval=0) for n in noise]
         noise = [scipy.ndimage.filters.convolve(n, blur2, mode='constant', cval=0) for n in noise]
-        ax = [np.linspace(-(b-1)*gran, (b-1)*gran, b) for b in bb]
-        interp = [scipy.interpolate.RegularGridInterpolator(ax, n, bounds_error=0, fill_value=0) for n in noise]
-        def g(x_):
-            return np.hstack([i(x_)[:,None] for i in interp])
-        return x + g(x) * mag
+        ax = [np.linspace(-(b - 1) * gran, (b - 1) * gran, b) for b in bb]
+        interp = [
+            scipy.interpolate.RegularGridInterpolator(ax, n, bounds_error=0, fill_value=0)
+            for n in noise
+        ]
 
+        def g(x_):
+            return np.hstack([i(x_)[:, None] for i in interp])
+
+        return x + g(x) * mag
 
     def getInstanceInfo(self, xyz, instance_label, label):
         '''
@@ -126,8 +161,10 @@ class Dataset:
         :param instance_label: (n), int, (0~nInst-1, -100)
         :return: instance_num, dict
         '''
-        instance_info = np.ones((xyz.shape[0], 9), dtype=np.float32) * -100.0   # (n, 9), float, (cx, cy, cz, minx, miny, minz, maxx, maxy, maxz)
-        instance_pointnum = []   # (nInst), int
+        instance_info = np.ones(
+            (xyz.shape[0], 9), dtype=np.float32
+        ) * -100.0  # (n, 9), float, (cx, cy, cz, minx, miny, minz, maxx, maxy, maxz)
+        instance_pointnum = []  # (nInst), int
         instance_cls = []
         instance_num = int(instance_label.max()) + 1
         for i_ in range(instance_num):
@@ -149,11 +186,13 @@ class Dataset:
             cls_loc = inst_idx_i[0][0]
 
             # ignore 2 first classes (floor, ceil)
-            cls = label[cls_loc] - 2 if label[cls_loc] != -100 else label[cls_loc] 
-            instance_cls.append(cls)  
-        return instance_num, {"instance_info": instance_info, "instance_pointnum": instance_pointnum,
-                              "instance_cls": instance_cls}
-
+            cls = label[cls_loc] - 2 if label[cls_loc] != -100 else label[cls_loc]
+            instance_cls.append(cls)
+        return instance_num, {
+            "instance_info": instance_info,
+            "instance_pointnum": instance_pointnum,
+            "instance_cls": instance_cls
+        }
 
     def dataAugment(self, xyz, jitter=False, flip=False, rot=False):
         m = np.eye(3)
@@ -163,9 +202,9 @@ class Dataset:
             m[0][0] *= np.random.randint(0, 2) * 2 - 1  # flip x randomly
         if rot:
             theta = np.random.rand() * 2 * math.pi
-            m = np.matmul(m, [[math.cos(theta), math.sin(theta), 0], [-math.sin(theta), math.cos(theta), 0], [0, 0, 1]])  # rotation
+            m = np.matmul(m, [[math.cos(theta), math.sin(theta), 0],
+                              [-math.sin(theta), math.cos(theta), 0], [0, 0, 1]])  # rotation
         return np.matmul(xyz, m)
-
 
     def crop(self, xyz):
         '''
@@ -185,7 +224,6 @@ class Dataset:
 
         return xyz_offset, valid_idxs
 
-
     def getCroppedInstLabel(self, instance_label, valid_idxs):
         instance_label = instance_label[valid_idxs]
         j = 0
@@ -194,7 +232,6 @@ class Dataset:
                 instance_label[instance_label == instance_label.max()] = j
             j += 1
         return instance_label
-
 
     def trainMerge(self, id):
         locs = []
@@ -205,14 +242,13 @@ class Dataset:
 
         instance_infos = []  # (N, 9)
         instance_pointnum = []  # (total_nInst), int
-        instance_cls = [] # (total_nInst), long
+        instance_cls = []  # (total_nInst), long
 
         batch_offsets = [0]
 
         total_inst_num = 0
         for i, idx in enumerate(id):
             xyz_origin, rgb, label, instance_label = self.train_files[idx]
-
 
             # jitter / flip x / rotation
             xyz_middle = self.dataAugment(xyz_origin, True, True, True)
@@ -237,9 +273,11 @@ class Dataset:
             instance_label = self.getCroppedInstLabel(instance_label, valid_idxs)
 
             # get instance information
-            inst_num, inst_infos = self.getInstanceInfo(xyz_middle, instance_label.astype(np.int32), label)
-            inst_info = inst_infos["instance_info"]  # (n, 9), (cx, cy, cz, minx, miny, minz, maxx, maxy, maxz)
-            inst_pointnum = inst_infos["instance_pointnum"]   # (nInst), list
+            inst_num, inst_infos = self.getInstanceInfo(xyz_middle, instance_label.astype(np.int32),
+                                                        label)
+            inst_info = inst_infos[
+                "instance_info"]  # (n, 9), (cx, cy, cz, minx, miny, minz, maxx, maxy, maxz)
+            inst_pointnum = inst_infos["instance_pointnum"]  # (nInst), list
             inst_cls = inst_infos["instance_cls"]
 
             instance_label[np.where(instance_label != -100)] += total_inst_num
@@ -248,7 +286,10 @@ class Dataset:
             # merge the scene to the batch
             batch_offsets.append(batch_offsets[-1] + xyz.shape[0])
 
-            locs.append(torch.cat([torch.LongTensor(xyz.shape[0], 1).fill_(i), torch.from_numpy(xyz).long()], 1))
+            locs.append(
+                torch.cat(
+                    [torch.LongTensor(xyz.shape[0], 1).fill_(i),
+                     torch.from_numpy(xyz).long()], 1))
             locs_float.append(torch.from_numpy(xyz_middle))
             feats.append(torch.from_numpy(rgb) + torch.randn(3) * 0.1)
             labels.append(torch.from_numpy(label))
@@ -261,26 +302,40 @@ class Dataset:
         # merge all the scenes in the batchd
         batch_offsets = torch.tensor(batch_offsets, dtype=torch.int)  # int (B+1)
 
-        locs = torch.cat(locs, 0)                                # long (N, 1 + 3), the batch item idx is put in locs[:, 0]
+        locs = torch.cat(locs, 0)  # long (N, 1 + 3), the batch item idx is put in locs[:, 0]
         locs_float = torch.cat(locs_float, 0).to(torch.float32)  # float (N, 3)
-        feats = torch.cat(feats, 0)                              # float (N, C)
-        labels = torch.cat(labels, 0).long()                     # long (N)
-        instance_labels = torch.cat(instance_labels, 0).long()   # long (N)
+        feats = torch.cat(feats, 0)  # float (N, C)
+        labels = torch.cat(labels, 0).long()  # long (N)
+        instance_labels = torch.cat(instance_labels, 0).long()  # long (N)
 
-        instance_infos = torch.cat(instance_infos, 0).to(torch.float32)       # float (N, 9) (meanxyz, minxyz, maxxyz)
+        instance_infos = torch.cat(instance_infos,
+                                   0).to(torch.float32)  # float (N, 9) (meanxyz, minxyz, maxxyz)
         instance_pointnum = torch.tensor(instance_pointnum, dtype=torch.int)  # int (total_nInst)
-        instance_cls = torch.tensor(instance_cls, dtype=torch.long)            # long (total_nInst)
+        instance_cls = torch.tensor(instance_cls, dtype=torch.long)  # long (total_nInst)
 
-        spatial_shape = np.clip((locs.max(0)[0][1:] + 1).numpy(), self.spatial_shape[0], None)     # long (3)
+        spatial_shape = np.clip((locs.max(0)[0][1:] + 1).numpy(), self.spatial_shape[0],
+                                None)  # long (3)
 
         # voxelize
-        voxel_locs, p2v_map, v2p_map = softgroup_ops.voxelization_idx(locs, self.batch_size, self.mode)
+        voxel_locs, p2v_map, v2p_map = softgroup_ops.voxelization_idx(locs, self.batch_size,
+                                                                      self.mode)
 
-        return {'locs': locs, 'voxel_locs': voxel_locs, 'p2v_map': p2v_map, 'v2p_map': v2p_map,
-                'locs_float': locs_float, 'feats': feats, 'labels': labels, 'instance_labels': instance_labels,
-                'instance_info': instance_infos, 'instance_pointnum': instance_pointnum, 'instance_cls': instance_cls,
-                'id': id, 'offsets': batch_offsets, 'spatial_shape': spatial_shape}
-
+        return {
+            'locs': locs,
+            'voxel_locs': voxel_locs,
+            'p2v_map': p2v_map,
+            'v2p_map': v2p_map,
+            'locs_float': locs_float,
+            'feats': feats,
+            'labels': labels,
+            'instance_labels': instance_labels,
+            'instance_info': instance_infos,
+            'instance_pointnum': instance_pointnum,
+            'instance_cls': instance_cls,
+            'id': id,
+            'offsets': batch_offsets,
+            'spatial_shape': spatial_shape
+        }
 
     def valMerge(self, id):
         locs = []
@@ -291,7 +346,7 @@ class Dataset:
 
         instance_infos = []  # (N, 9)
         instance_pointnum = []  # (total_nInst), int
-        instance_cls = [] # (total_nInst), long 
+        instance_cls = []  # (total_nInst), long
 
         batch_offsets = [0]
 
@@ -319,8 +374,10 @@ class Dataset:
             instance_label = self.getCroppedInstLabel(instance_label, valid_idxs)
 
             # get instance information
-            inst_num, inst_infos = self.getInstanceInfo(xyz_middle, instance_label.astype(np.int32), label)
-            inst_info = inst_infos["instance_info"]  # (n, 9), (cx, cy, cz, minx, miny, minz, maxx, maxy, maxz)
+            inst_num, inst_infos = self.getInstanceInfo(xyz_middle, instance_label.astype(np.int32),
+                                                        label)
+            inst_info = inst_infos[
+                "instance_info"]  # (n, 9), (cx, cy, cz, minx, miny, minz, maxx, maxy, maxz)
             inst_pointnum = inst_infos["instance_pointnum"]  # (nInst), list
             inst_cls = inst_infos["instance_cls"]
 
@@ -330,7 +387,10 @@ class Dataset:
             # merge the scene to the batch
             batch_offsets.append(batch_offsets[-1] + xyz.shape[0])
 
-            locs.append(torch.cat([torch.LongTensor(xyz.shape[0], 1).fill_(i), torch.from_numpy(xyz).long()], 1))
+            locs.append(
+                torch.cat(
+                    [torch.LongTensor(xyz.shape[0], 1).fill_(i),
+                     torch.from_numpy(xyz).long()], 1))
             locs_float.append(torch.from_numpy(xyz_middle))
             feats.append(torch.from_numpy(rgb))
             labels.append(torch.from_numpy(label))
@@ -343,33 +403,46 @@ class Dataset:
         # merge all the scenes in the batch
         batch_offsets = torch.tensor(batch_offsets, dtype=torch.int)  # int (B+1)
 
-        locs = torch.cat(locs, 0)                                  # long (N, 1 + 3), the batch item idx is put in locs[:, 0]
-        locs_float = torch.cat(locs_float, 0).to(torch.float32)    # float (N, 3)
-        feats = torch.cat(feats, 0)                                # float (N, C)
-        labels = torch.cat(labels, 0).long()                       # long (N)
-        instance_labels = torch.cat(instance_labels, 0).long()     # long (N)
+        locs = torch.cat(locs, 0)  # long (N, 1 + 3), the batch item idx is put in locs[:, 0]
+        locs_float = torch.cat(locs_float, 0).to(torch.float32)  # float (N, 3)
+        feats = torch.cat(feats, 0)  # float (N, C)
+        labels = torch.cat(labels, 0).long()  # long (N)
+        instance_labels = torch.cat(instance_labels, 0).long()  # long (N)
 
-        instance_infos = torch.cat(instance_infos, 0).to(torch.float32)               # float (N, 9) (meanxyz, minxyz, maxxyz)
-        instance_pointnum = torch.tensor(instance_pointnum, dtype=torch.int)          # int (total_nInst)
-        instance_cls = torch.tensor(instance_cls, dtype=torch.long)            # long (total_nInst)
+        instance_infos = torch.cat(instance_infos,
+                                   0).to(torch.float32)  # float (N, 9) (meanxyz, minxyz, maxxyz)
+        instance_pointnum = torch.tensor(instance_pointnum, dtype=torch.int)  # int (total_nInst)
+        instance_cls = torch.tensor(instance_cls, dtype=torch.long)  # long (total_nInst)
 
-        spatial_shape = np.clip((locs.max(0)[0][1:] + 1).numpy(), self.voxel_cfg.spatial_shape[0], None)  # long (3)
+        spatial_shape = np.clip((locs.max(0)[0][1:] + 1).numpy(), self.voxel_cfg.spatial_shape[0],
+                                None)  # long (3)
 
         # voxelize
         voxel_locs, p2v_map, v2p_map = softgroup_ops.voxelization_idx(locs, 1)
 
-        return {'locs': locs, 'voxel_locs': voxel_locs, 'p2v_map': p2v_map, 'v2p_map': v2p_map,
-                'locs_float': locs_float, 'feats': feats, 'labels': labels, 'instance_labels': instance_labels,
-                'instance_info': instance_infos, 'instance_pointnum': instance_pointnum, 'instance_cls': instance_cls,
-                'id': id, 'offsets': batch_offsets, 'spatial_shape': spatial_shape}
-
+        return {
+            'locs': locs,
+            'voxel_locs': voxel_locs,
+            'p2v_map': p2v_map,
+            'v2p_map': v2p_map,
+            'locs_float': locs_float,
+            'feats': feats,
+            'labels': labels,
+            'instance_labels': instance_labels,
+            'instance_info': instance_infos,
+            'instance_pointnum': instance_pointnum,
+            'instance_cls': instance_cls,
+            'id': id,
+            'offsets': batch_offsets,
+            'spatial_shape': spatial_shape
+        }
 
     def testMerge(self, id):
         locs = []
         locs_float = []
         feats = []
 
-        labels = []#
+        labels = []  #
 
         batch_offsets = [0]
         for i, idx in enumerate(id):
@@ -394,7 +467,10 @@ class Dataset:
             # merge the scene to the batch
             batch_offsets.append(batch_offsets[-1] + xyz.shape[0])
 
-            locs.append(torch.cat([torch.LongTensor(xyz.shape[0], 1).fill_(i), torch.from_numpy(xyz).long()], 1))
+            locs.append(
+                torch.cat(
+                    [torch.LongTensor(xyz.shape[0], 1).fill_(i),
+                     torch.from_numpy(xyz).long()], 1))
             locs_float.append(torch.from_numpy(xyz_middle))
             feats.append(torch.from_numpy(rgb))
 
@@ -402,30 +478,46 @@ class Dataset:
                 labels.append(torch.from_numpy(label))
 
         if self.test_split == 'val':
-            labels = torch.cat(labels, 0).long()                     # long (N)
+            labels = torch.cat(labels, 0).long()  # long (N)
 
         # merge all the scenes in the batch
         batch_offsets = torch.tensor(batch_offsets, dtype=torch.int)  # int (B+1)
 
-        locs = torch.cat(locs, 0)                                         # long (N, 1 + 3), the batch item idx is put in locs[:, 0]
-        locs_float = torch.cat(locs_float, 0).to(torch.float32)           # float (N, 3)
-        feats = torch.cat(feats, 0)                                       # float (N, C)
+        locs = torch.cat(locs, 0)  # long (N, 1 + 3), the batch item idx is put in locs[:, 0]
+        locs_float = torch.cat(locs_float, 0).to(torch.float32)  # float (N, 3)
+        feats = torch.cat(feats, 0)  # float (N, C)
 
-        spatial_shape = np.clip((locs.max(0)[0][1:] + 1).numpy(), self.voxel_cfg.spatial_shape[0], None)  # long (3)
+        spatial_shape = np.clip((locs.max(0)[0][1:] + 1).numpy(), self.voxel_cfg.spatial_shape[0],
+                                None)  # long (3)
 
         # voxelize
         voxel_locs, p2v_map, v2p_map = softgroup_ops.voxelization_idx(locs, 1)  # TODO
 
         if self.test_split == 'val':
-            return {'locs': locs, 'voxel_locs': voxel_locs, 'p2v_map': p2v_map, 'v2p_map': v2p_map,
-                    'locs_float': locs_float, 'feats': feats,
-                    'id': id, 'offsets': batch_offsets, 'spatial_shape': spatial_shape,
-                    'labels': labels}
-        
+            return {
+                'locs': locs,
+                'voxel_locs': voxel_locs,
+                'p2v_map': p2v_map,
+                'v2p_map': v2p_map,
+                'locs_float': locs_float,
+                'feats': feats,
+                'id': id,
+                'offsets': batch_offsets,
+                'spatial_shape': spatial_shape,
+                'labels': labels
+            }
+
         elif self.test_split == 'test':
-            return {'locs': locs, 'voxel_locs': voxel_locs, 'p2v_map': p2v_map, 'v2p_map': v2p_map,
-                    'locs_float': locs_float, 'feats': feats,
-                    'id': id, 'offsets': batch_offsets, 'spatial_shape': spatial_shape} 
+            return {
+                'locs': locs,
+                'voxel_locs': voxel_locs,
+                'p2v_map': p2v_map,
+                'v2p_map': v2p_map,
+                'locs_float': locs_float,
+                'feats': feats,
+                'id': id,
+                'offsets': batch_offsets,
+                'spatial_shape': spatial_shape
+            }
         else:
             assert Exception
-

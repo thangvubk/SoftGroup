@@ -11,37 +11,15 @@ from .util_3d import get_instances
 
 class ScanNetEval(object):
 
-    valid_class_labels = [
-        'cabinet', 'bed', 'chair', 'sofa', 'table', 'door', 'window',
-        'bookshelf', 'picture', 'counter', 'desk', 'curtain', 'refrigerator',
-        'shower curtain', 'toilet', 'sink', 'bathtub', 'otherfurniture'
-    ]
-    valid_class_ids = np.array(
-        [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 16, 24, 28, 33, 34, 36, 39])
-    valid_class_ids = np.arange(18) + 1
-    # valid_class_labels = [
-    #     "ceiling",
-    #     "floor",
-    #     "wall",
-    #     "beam",
-    #     "column",
-    #     "window",
-    #     "door",
-    #     "chair",
-    #     "table",
-    #     "bookcase",
-    #     "sofa",
-    #     "board",
-    #     "clutter"
-    # ]
-    # valid_class_ids = np.arange(13) + 1
-    id2label = {}
-    label2id = {}
-    for i in range(len(valid_class_ids)):
-        label2id[valid_class_labels[i]] = valid_class_ids[i]
-        id2label[valid_class_ids[i]] = valid_class_labels[i]
+    def __init__(self, class_labels, iou_type=None, use_label=True):
+        self.valid_class_labels = class_labels
+        self.valid_class_ids = np.arange(len(class_labels)) + 1
+        self.id2label = {}
+        self.label2id = {}
+        for i in range(len(self.valid_class_ids)):
+            self.label2id[self.valid_class_labels[i]] = self.valid_class_ids[i]
+            self.id2label[self.valid_class_ids[i]] = self.valid_class_labels[i]
 
-    def __init__(self, iou_type=None, use_label=True):
         self.ious = np.append(np.arange(0.5, 0.95, 0.05), 0.25)
         self.min_region_sizes = np.array([100])
         self.distance_threshes = np.array([float('inf')])
