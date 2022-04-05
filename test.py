@@ -10,6 +10,9 @@ import util.utils as utils
 from evaluation import ScanNetEval
 from model.softgroup import SoftGroup
 
+from data.scannetv2 import ScanNetDataset
+from torch.utils.data import DataLoader
+
 
 def get_args():
     parser = argparse.ArgumentParser('SoftGroup')
@@ -74,10 +77,16 @@ if __name__ == '__main__':
     model = utils.load_checkpoint(model, args.checkpoint)
     model.cuda()
 
-    from data.scannetv2_inst import Dataset
-    dataset = Dataset(**cfg.data.test)
-    dataset.valLoader()
-    dataloader = dataset.val_data_loader
+
+    dataset = ScanNetDataset(training=False, **cfg.data.test)
+    dataloader = DataLoader(
+        dataset,
+        batch_size=1,
+        collate_fn=dataset.collate_fn,
+        num_workers=16,
+        shuffle=False,
+        drop_last=False,
+        pin_memory=True)
     all_preds, all_gts = [], []
     with torch.no_grad():
         model = model.eval()

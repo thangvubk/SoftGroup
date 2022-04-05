@@ -130,7 +130,7 @@ class SoftGroup(nn.Module):
                                                                 self.grouping_cfg)
         scores_batch_idxs, cls_scores, iou_scores, mask_scores = self.forward_instance(
             proposals_idx, proposals_offset, output_feats, coords_float)
-        pred_instances = self.get_instances(batch['id'][0], proposals_idx, semantic_scores,
+        pred_instances = self.get_instances(batch['scan_ids'][0], proposals_idx, semantic_scores,
                                             cls_scores, iou_scores, mask_scores)
         gt_instances = self.get_gt_instances(labels, instance_labels)
         ret = {}
