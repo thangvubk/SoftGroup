@@ -30,6 +30,9 @@ class CustomDataset(Dataset):
         assert len(filenames) > 0, 'Empty dataset.'
         return filenames
 
+    def load(self, filename):
+        return torch.load(filename)
+
     def __len__(self):
         return len(self.filenames)
 
@@ -135,29 +138,39 @@ class CustomDataset(Dataset):
             j += 1
         return instance_label
 
+    def transform_train(self, xyz, rgb, label, instance_label):
+        xyz_middle = self.dataAugment(xyz, True, True, True)
+        xyz = xyz_middle * self.voxel_cfg.scale
+        xyz = self.elastic(xyz, 6 * self.scale // 50, 40 * self.scale / 50)
+        xyz = self.elastic(xyz, 20 * self.scale // 50, 160 * self.scale / 50)
+        xyz -= xyz.min(0)
+        xyz, valid_idxs = self.crop(xyz)
+        xyz = xyz[valid_idxs]
+        xyz_middle = xyz_middle[valid_idxs]
+        rgb = rgb[valid_idxs]
+        label = label[valid_idxs]
+        instance_label = self.getCroppedInstLabel(instance_label, valid_idxs)
+        return xyz, xyz_middle, rgb, label, instance_label
+
+    def transform_test(self, xyz, rgb, label, instance_label):
+        xyz_middle = self.dataAugment(xyz, False, True, True)
+        xyz = xyz_middle * self.voxel_cfg.scale
+        xyz -= xyz.min(0)
+        valid_idxs = np.ones(xyz.shape[0], dtype=bool)
+        instance_label = self.getCroppedInstLabel(instance_label, valid_idxs)  # TODO remove this
+        return xyz, xyz_middle, rgb, label, instance_label
+
     def __getitem__(self, index):
         filename = self.filenames[index]
         scan_id = osp.basename(filename).replace(self.suffix, '')
-        xyz_origin, rgb, label, instance_label = torch.load(filename)
-        if self.training:
-            xyz_middle = self.dataAugment(xyz_origin, True, True, True)
-            xyz = xyz_middle * self.voxel_cfg.scale
-            xyz = self.elastic(xyz, 6 * self.scale // 50, 40 * self.scale / 50)
-            xyz = self.elastic(xyz, 20 * self.scale // 50, 160 * self.scale / 50)
-            xyz -= xyz.min(0)
-            xyz, valid_idxs = self.crop(xyz)
-        else:
-            xyz_middle = self.dataAugment(xyz_origin, False, True, True)
-            xyz = xyz_middle * self.voxel_cfg.scale
-            xyz -= xyz.min(0)
-            valid_idxs = np.ones(xyz.shape[0], dtype=bool)
-        instance_label = self.getCroppedInstLabel(instance_label, valid_idxs)
+        data = self.load(filename)
+        data = self.transform_train(*data) if self.training else self.transform_test(*data)
+        xyz, xyz_middle, rgb, label, instance_label = data
         inst_num, inst_infos = self.getInstanceInfo(xyz_middle, instance_label.astype(np.int32),
                                                     label)
         inst_info = inst_infos["instance_info"]
         inst_pointnum = inst_infos["instance_pointnum"]
         inst_cls = inst_infos["instance_cls"]
-
         loc = torch.from_numpy(xyz).long()
         loc_float = torch.from_numpy(xyz_middle)
         feat = torch.from_numpy(rgb)

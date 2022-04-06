@@ -30,7 +30,7 @@ model:
 
 data:
   train:
-    data_root: 'dataset/s3dis'
+    data_root: 'dataset/s3dis/preprocess'
     prefix: 'val'
     suffix: '_inst_nostuff.pth'
     voxel_cfg:
@@ -38,7 +38,7 @@ data:
       spatial_shape: [128, 512]
       max_npoint: 250000
   test:
-    data_root: 'dataset/s3dis'
+    data_root: 'dataset/s3dis/preprocess'
     prefix: 'Area_5'
     suffix: '_inst_nostuff.pth'
     voxel_cfg:
