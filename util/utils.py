@@ -133,8 +133,25 @@ def checkpoint_save(model, optimizer, exp_path, exp_name, epoch, save_freq=16, u
             os.remove(f)
 
 def load_checkpoint(model, checkpoint, strict=False):
-    state_dict = torch.load(checkpoint)
-    model.load_state_dict(state_dict['net'], strict=strict)
+    src_state_dict = torch.load(checkpoint)['net']
+    target_state_dict = model.state_dict()
+    skip_keys = []
+    error_msg = ''
+    # skip mismatch size tensors in case of pretraining
+    for k in src_state_dict.keys():
+        if k not in target_state_dict:
+            continue
+        if src_state_dict[k].size() != target_state_dict[k].size():
+            skip_keys.append(k)
+    for k in skip_keys:
+        del src_state_dict[k]
+    missing_keys, unexpected_keys = model.load_state_dict(src_state_dict, strict=strict)
+    if skip_keys:
+        print(f'removed keys in source state_dict due to size mismatch: {", ".join(skip_keys)}')
+    if missing_keys:
+        print(f'missing keys in source state_dict: {", ".join(missing_keys)}')
+    if unexpected_keys:
+        print(f'unexpected key in source state_dict: {", ".join(unexpected_keys)}')
     return model
 
 def load_model_param(model, pretrained_dict, prefix=""):
