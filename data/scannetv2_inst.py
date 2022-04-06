@@ -37,19 +37,17 @@ class Dataset:
 
     def trainLoader(self):
         if self.train_split == 'trainval':
-            train_file_names = sorted(glob.glob(os.path.join(self.data_root, self.dataset, 'train', '*' + self.filename_suffix))
+            self.train_file_names = sorted(glob.glob(os.path.join(self.data_root, self.dataset, 'train', '*' + self.filename_suffix))
                 + glob.glob(os.path.join(self.data_root, self.dataset, 'val', '*' + self.filename_suffix))
             )
         elif self.train_split == 'train':
-            train_file_names = sorted(glob.glob(os.path.join(self.data_root, self.dataset, 'train', '*' + self.filename_suffix)))
+            self.train_file_names = sorted(glob.glob(os.path.join(self.data_root, self.dataset, 'train', '*' + self.filename_suffix)))
         else:
             raise Exception
 
-        self.train_files = [torch.load(i) for i in train_file_names]
+        logger.info('Training samples: {}'.format(len(self.train_file_names)))
 
-        logger.info('Training samples: {}'.format(len(self.train_files)))
-
-        train_set = list(range(len(self.train_files)))
+        train_set = list(range(len(self.train_file_names)))
         self.train_data_loader = DataLoader(train_set, batch_size=self.batch_size, collate_fn=self.trainMerge, num_workers=self.train_workers,
                                             shuffle=True, sampler=None, drop_last=True, pin_memory=True)
         
@@ -78,12 +76,11 @@ class Dataset:
 
 
     def valLoader(self):
-        val_file_names = sorted(glob.glob(os.path.join(self.data_root, self.dataset, 'val', '*' + self.filename_suffix)))
-        self.val_files = [torch.load(i) for i in val_file_names]
+        self.val_file_names = sorted(glob.glob(os.path.join(self.data_root, self.dataset, 'val', '*' + self.filename_suffix)))
 
-        logger.info('Validation samples: {}'.format(len(self.val_files)))
+        logger.info('Validation samples: {}'.format(len(self.val_file_names)))
 
-        val_set = list(range(len(self.val_files)))
+        val_set = list(range(len(self.val_file_names)))
         self.val_data_loader = DataLoader(val_set, batch_size=self.batch_size, collate_fn=self.valMerge, num_workers=self.val_workers,
                                           shuffle=False, drop_last=False, pin_memory=True)
 
@@ -210,7 +207,7 @@ class Dataset:
 
         total_inst_num = 0
         for i, idx in enumerate(id):
-            xyz_origin, rgb, label, instance_label = self.train_files[idx]
+            xyz_origin, rgb, label, instance_label = torch.load(self.train_file_names[idx])
 
 
             # jitter / flip x / rotation
@@ -296,7 +293,7 @@ class Dataset:
 
         total_inst_num = 0
         for i, idx in enumerate(id):
-            xyz_origin, rgb, label, instance_label = self.val_files[idx]
+            xyz_origin, rgb, label, instance_label = torch.load(self.val_file_names[idx])
 
             # flip x / rotation
             xyz_middle = self.dataAugment(xyz_origin, False, True, True)
