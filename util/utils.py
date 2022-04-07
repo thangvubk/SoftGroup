@@ -3,6 +3,8 @@ import sys
 sys.path.append('../')
 from math import cos, pi
 from util.log import logger
+import os.path as osp
+from collections import OrderedDict
 
 class AverageMeter(object):
     """Computes and stores the average and current value"""
@@ -113,27 +115,38 @@ def is_power2(num):
 def is_multiple(num, multiple):
     return num != 0 and num % multiple == 0
 
+def weights_to_cpu(state_dict):
+    """Copy a model state_dict to cpu.
+    Args:
+        state_dict (OrderedDict): Model weights on GPU.
+    Returns:
+        OrderedDict: Model weights on GPU.
+    """
+    state_dict_cpu = OrderedDict()
+    for key, val in state_dict.items():
+        state_dict_cpu[key] = val.cpu()
+    return state_dict_cpu
 
-def checkpoint_save(model, optimizer, exp_path, exp_name, epoch, save_freq=16, use_cuda=True, ):
-    f = os.path.join(exp_path, exp_name + '-%09d'%epoch + '.pth')
-    logger.info('Saving ' + f)
-    model.cpu()
-    
-    checkpoint = {'net': model.state_dict(), 'optimizer': optimizer.state_dict()}
+def checkpoint_save(epoch, model, optimizer, work_dir, save_freq=16):
+    f = os.path.join(work_dir, f'epoch_{epoch}.pth')
+    checkpoint = {'net': weights_to_cpu(model.state_dict()),
+                  'optimizer': optimizer.state_dict(),
+                  'epoch': epoch}
     torch.save(checkpoint, f)
+    if os.path.exists(f'{work_dir}/latest.pth'):
+        os.remove(f'{work_dir}/latest.pth')
+    os.system(f'cd {work_dir}; ln -s {osp.basename(f)} latest.pth')
     
-    if use_cuda:
-        model.cuda()
-
-    # remove previous checkpoints unless they are a power of 2 or a multiple of 16 to save disk space
+    # remove previous checkpoints unless they are a power of 2 or a multiple of save_freq
     epoch = epoch - 1
-    f = os.path.join(exp_path, exp_name + '-%09d'%epoch + '.pth')
+    f = os.path.join(work_dir, f'epoch_{epoch}.pth')
     if os.path.isfile(f):
         if not is_multiple(epoch, save_freq) and not is_power2(epoch):
             os.remove(f)
 
-def load_checkpoint(model, checkpoint, strict=False):
-    src_state_dict = torch.load(checkpoint)['net']
+def load_checkpoint(checkpoint, logger, model, optimizer=None, strict=False):
+    state_dict = torch.load(checkpoint)
+    src_state_dict = state_dict['net']
     target_state_dict = model.state_dict()
     skip_keys = []
     error_msg = ''
@@ -147,12 +160,22 @@ def load_checkpoint(model, checkpoint, strict=False):
         del src_state_dict[k]
     missing_keys, unexpected_keys = model.load_state_dict(src_state_dict, strict=strict)
     if skip_keys:
-        print(f'removed keys in source state_dict due to size mismatch: {", ".join(skip_keys)}')
+        logger.info(f'removed keys in source state_dict due to size mismatch: {", ".join(skip_keys)}')
     if missing_keys:
-        print(f'missing keys in source state_dict: {", ".join(missing_keys)}')
+        logger.info(f'missing keys in source state_dict: {", ".join(missing_keys)}')
     if unexpected_keys:
-        print(f'unexpected key in source state_dict: {", ".join(unexpected_keys)}')
-    return model
+        logger.info(f'unexpected key in source state_dict: {", ".join(unexpected_keys)}')
+
+    # load optimizer
+    if optimizer is not None:
+        assert 'optimizer' in state_dict
+        optimizer.load_state_dict(state_dict['optimizer'])
+
+    if 'epoch' in state_dict:
+        epoch = state_dict['epoch']
+    else:
+        epoch = 0
+    return epoch + 1
 
 def load_model_param(model, pretrained_dict, prefix=""):
     # suppose every param in model should exist in pretrain_dict, but may differ in the prefix of the name
@@ -194,5 +217,8 @@ def print_error(message, user_fault=False):
       sys.exit(2)
     sys.exit(-1)
 
-
-
+def get_max_memory():
+    mem = torch.cuda.max_memory_allocated()
+    mem_mb = torch.tensor([int(mem) // (1024 * 1024)],
+                          dtype=torch.int)
+    return mem_mb.item()

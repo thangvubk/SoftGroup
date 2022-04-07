@@ -17,18 +17,21 @@ class CustomDataset(Dataset):
 
     CLASSES = None
 
-    def __init__(self, data_root, prefix, suffix, voxel_cfg=None, training=True):
+    def __init__(self, data_root, prefix, suffix, voxel_cfg=None, training=True, repeat=1, logger=None):
         self.data_root = data_root
         self.prefix = prefix
         self.suffix = suffix
         self.voxel_cfg = voxel_cfg
         self.training = training
+        self.repeat = repeat
+        self.logger = logger
         self.filenames = self.get_filenames()
 
     def get_filenames(self):
-        filenames = sorted(glob(osp.join(self.data_root, self.prefix, '*' + self.suffix)))
+        filenames = glob(osp.join(self.data_root, self.prefix, '*' + self.suffix))
         assert len(filenames) > 0, 'Empty dataset.'
-        return filenames
+        filenames = sorted(filenames * self.repeat)
+        self.logger.info(f'Load dataset: {len(filenames)} scans')
 
     def load(self, filename):
         return torch.load(filename)
@@ -173,6 +176,8 @@ class CustomDataset(Dataset):
         scan_id = osp.basename(filename).replace(self.suffix, '')
         data = self.load(filename)
         data = self.transform_train(*data) if self.training else self.transform_test(*data)
+        if data is None:
+            return None
         xyz, xyz_middle, rgb, label, instance_label = data
         inst_num, inst_infos = self.getInstanceInfo(xyz_middle, instance_label.astype(np.int32),
                                                     label)
@@ -226,7 +231,7 @@ class CustomDataset(Dataset):
             batch_id += 1
         assert batch_id > 0, 'empty batch'
         if batch_id < len(batch):
-            print(f'batch is truncated from size {len(batch)} to {batch_id}')
+            self.logger.info(f'batch is truncated from size {len(batch)} to {batch_id}')
 
         # merge all the scenes in the batch
         batch_offsets = torch.tensor(batch_offsets, dtype=torch.int)  # int (B+1)

@@ -23,7 +23,8 @@ class S3DISDataset(CustomDataset):
             filenames = glob(osp.join(self.data_root, p + '*' + self.suffix))
             assert len(filenames) > 0, f'Empty {p}'
             filenames_all.extend(filenames)
-        filenames_all.sort()
+        filenames_all = sorted(filenames_all * self.repeat)
+        self.logger.info(f'Load dataset: {len(filenames_all)} scans')
         return filenames_all
 
     def load(self, filename):
