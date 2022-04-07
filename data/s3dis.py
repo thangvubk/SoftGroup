@@ -16,9 +16,15 @@ class S3DISDataset(CustomDataset):
                "bookcase", "sofa", "board", "clutter")
 
     def get_filenames(self):
-        filenames = sorted(glob(osp.join(self.data_root, self.prefix + '*' + self.suffix)))
-        assert len(filenames) > 0, 'Empty dataset.'
-        return filenames
+        if isinstance(self.prefix, str):
+            self.prefix = [self.prefix]
+        filenames_all = []
+        for p in self.prefix:
+            filenames = glob(osp.join(self.data_root, p + '*' + self.suffix))
+            assert len(filenames) > 0, f'Empty {p}'
+            filenames_all.extend(filenames)
+        filenames_all.sort()
+        return filenames_all
 
     def load(self, filename):
         # TODO make file load results consistent
@@ -35,18 +41,19 @@ class S3DISDataset(CustomDataset):
 
     def crop(self, xyz, step=64):
         xyz_offset = xyz.copy()
-        valid_idxs = (xyz_offset.min(1) >= 0) * ((xyz < self.full_scale[1]).sum(1) == 3)
+        valid_idxs = (xyz_offset.min(1) >= 0) * (
+            (xyz < self.voxel_cfg.spatial_shape[1]).sum(1) == 3)
 
-        full_scale = np.array([self.full_scale[1]] * 3)
+        spatial_shape = np.array([self.voxel_cfg.spatial_shape[1]] * 3)
         room_range = xyz.max(0) - xyz.min(0)
-        while (valid_idxs.sum() > self.max_npoint):
+        while (valid_idxs.sum() > self.voxel_cfg.max_npoint):
             step_temp = step
             if valid_idxs.sum() > 1e6:
                 step_temp = step * 2
-            offset = np.clip(full_scale - room_range + 0.001, None, 0) * np.random.rand(3)
+            offset = np.clip(spatial_shape - room_range + 0.001, None, 0) * np.random.rand(3)
             xyz_offset = xyz + offset
-            valid_idxs = (xyz_offset.min(1) >= 0) * ((xyz_offset < full_scale).sum(1) == 3)
-            full_scale[:2] -= step_temp
+            valid_idxs = (xyz_offset.min(1) >= 0) * ((xyz_offset < spatial_shape).sum(1) == 3)
+            spatial_shape[:2] -= step_temp
 
         return xyz_offset, valid_idxs
 

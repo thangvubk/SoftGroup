@@ -141,10 +141,18 @@ class CustomDataset(Dataset):
     def transform_train(self, xyz, rgb, label, instance_label):
         xyz_middle = self.dataAugment(xyz, True, True, True)
         xyz = xyz_middle * self.voxel_cfg.scale
-        xyz = self.elastic(xyz, 6 * self.scale // 50, 40 * self.scale / 50)
-        xyz = self.elastic(xyz, 20 * self.scale // 50, 160 * self.scale / 50)
+        xyz = self.elastic(xyz, 6 * self.voxel_cfg.scale // 50, 40 * self.voxel_cfg.scale / 50)
+        xyz = self.elastic(xyz, 20 * self.voxel_cfg.scale // 50, 160 * self.voxel_cfg.scale / 50)
         xyz -= xyz.min(0)
-        xyz, valid_idxs = self.crop(xyz)
+        max_tries = 5
+        while (max_tries > 0):
+            xyz_offset, valid_idxs = self.crop(xyz)
+            if valid_idxs.sum() >= self.voxel_cfg.min_npoint:
+                xyz = xyz_offset
+                break
+            max_tries -= 1
+        if valid_idxs.sum() < self.voxel_cfg.min_npoint:
+            return None
         xyz = xyz[valid_idxs]
         xyz_middle = xyz_middle[valid_idxs]
         rgb = rgb[valid_idxs]
@@ -173,7 +181,7 @@ class CustomDataset(Dataset):
         inst_cls = inst_infos["instance_cls"]
         loc = torch.from_numpy(xyz).long()
         loc_float = torch.from_numpy(xyz_middle)
-        feat = torch.from_numpy(rgb)
+        feat = torch.from_numpy(rgb).float()
         if self.training:
             feat += torch.randn(3) * 0.1
         label = torch.from_numpy(label)
@@ -197,26 +205,28 @@ class CustomDataset(Dataset):
         batch_offsets = [0]
 
         total_inst_num = 0
-        for i, data in enumerate(batch):
+        batch_id = 0
+        for data in batch:
+            if data is None:
+                continue
             (scan_id, loc, loc_float, feat, label, instance_label, inst_num, inst_info,
              inst_pointnum, inst_cls) = data
-
             instance_label[np.where(instance_label != -100)] += total_inst_num
             total_inst_num += inst_num
-
-            # merge the scene to the batch
             batch_offsets.append(batch_offsets[-1] + loc.size(0))
-
             scan_ids.append(scan_id)
-            locs.append(torch.cat([loc.new_full((loc.size(0), 1), i), loc], 1))
+            locs.append(torch.cat([loc.new_full((loc.size(0), 1), batch_id), loc], 1))
             locs_float.append(loc_float)
             feats.append(feat)
             labels.append(label)
             instance_labels.append(instance_label)
-
             instance_infos.append(inst_info)
             instance_pointnum.extend(inst_pointnum)
             instance_cls.extend(inst_cls)
+            batch_id += 1
+        assert batch_id > 0, 'empty batch'
+        if batch_id < len(batch):
+            print(f'batch is truncated from size {len(batch)} to {batch_id}')
 
         # merge all the scenes in the batch
         batch_offsets = torch.tensor(batch_offsets, dtype=torch.int)  # int (B+1)
@@ -226,18 +236,14 @@ class CustomDataset(Dataset):
         feats = torch.cat(feats, 0)  # float (N, C)
         labels = torch.cat(labels, 0).long()  # long (N)
         instance_labels = torch.cat(instance_labels, 0).long()  # long (N)
-
         instance_infos = torch.cat(instance_infos,
                                    0).to(torch.float32)  # float (N, 9) (meanxyz, minxyz, maxxyz)
         instance_pointnum = torch.tensor(instance_pointnum, dtype=torch.int)  # int (total_nInst)
         instance_cls = torch.tensor(instance_cls, dtype=torch.long)  # long (total_nInst)
 
-        spatial_shape = np.clip((locs.max(0)[0][1:] + 1).numpy(), self.voxel_cfg.spatial_shape[0],
-                                None)  # long (3)
-
-        # voxelize
+        spatial_shape = np.clip(
+            locs.max(0)[0][1:].numpy() + 1, self.voxel_cfg.spatial_shape[0], None)
         voxel_locs, p2v_map, v2p_map = softgroup_ops.voxelization_idx(locs, 1)
-
         return {
             'scan_ids': scan_ids,
             'locs': locs,
@@ -252,5 +258,6 @@ class CustomDataset(Dataset):
             'instance_pointnum': instance_pointnum,
             'instance_cls': instance_cls,
             'offsets': batch_offsets,
-            'spatial_shape': spatial_shape
+            'spatial_shape': spatial_shape,
+            'batch_size': batch_id,
         }

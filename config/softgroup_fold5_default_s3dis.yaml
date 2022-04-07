@@ -31,12 +31,13 @@ model:
 data:
   train:
     data_root: 'dataset/s3dis/preprocess'
-    prefix: 'val'
+    prefix: ['Area_1', 'Area_2', 'Area_3', 'Area_4', 'Area_6']
     suffix: '_inst_nostuff.pth'
     voxel_cfg:
       scale: 50
       spatial_shape: [128, 512]
       max_npoint: 250000
+      min_npoint: 5000
   test:
     data_root: 'dataset/s3dis/preprocess'
     prefix: 'Area_5'
@@ -45,9 +46,16 @@ data:
       scale: 50
       spatial_shape: [128, 512]
       max_npoint: 250000
+      min_npoint: 5000
   data_loader:
     batch_size: 4
     num_workers: 4
+
+optim:
+  lr: 0.001
+
+pretrain: 'hais_ckpt.pth'
+resume: ''
 
 
 DATA:

@@ -7,6 +7,13 @@ import numpy as np
 from util.config import cfg
 
 import torch.distributed as dist
+import argparse
+from munch import Munch
+import yaml
+from model.softgroup import SoftGroup
+from util import utils
+from data import S3DISDataset
+from torch.utils.data import DataLoader
 
 
 def init():
@@ -31,8 +38,9 @@ def init():
     torch.manual_seed(cfg.manual_seed)
     torch.cuda.manual_seed_all(cfg.manual_seed)
 
+
 # epoch counts from 1 to N
-def train_epoch(train_loader, model, model_fn, optimizer, epoch):
+def train_epoch(epoch, train_loader, model, optimizer):
     iter_time = utils.AverageMeter()
     data_time = utils.AverageMeter()
     am_dict = {}
@@ -41,8 +49,8 @@ def train_epoch(train_loader, model, model_fn, optimizer, epoch):
     start_epoch = time.time()
     end = time.time()
 
-    if train_loader.sampler is not None and cfg.dist == True:
-        train_loader.sampler.set_epoch(epoch)
+    # if train_loader.sampler is not None and cfg.dist == True:
+    #     train_loader.sampler.set_epoch(epoch)
 
     for i, batch in enumerate(train_loader):
 
@@ -53,15 +61,16 @@ def train_epoch(train_loader, model, model_fn, optimizer, epoch):
         data_time.update(time.time() - end)
         torch.cuda.empty_cache()
 
+        loss, log_vars = model(batch, return_loss=True)
+
         # adjust learning rate
-        utils.cosine_lr_after_step(optimizer, cfg.lr, epoch - 1, cfg.step_epoch, cfg.epochs)
-    
+        # utils.cosine_lr_after_step(optimizer, cfg.lr, epoch - 1, cfg.step_epoch, cfg.epochs)
 
         # prepare input and forward
-        loss, _, visual_dict, meter_dict = model_fn(batch, model, epoch, semantic_only=cfg.semantic_only)
+        # loss, _, visual_dict, meter_dict = model_fn(batch, model, epoch, semantic_only=cfg.semantic_only)
 
         # meter_dict
-        for k, v in meter_dict.items():
+        for k, v in log_vars.items():
             if k not in am_dict.keys():
                 am_dict[k] = utils.AverageMeter()
             am_dict[k].update(v[0], v[1])
@@ -73,7 +82,7 @@ def train_epoch(train_loader, model, model_fn, optimizer, epoch):
 
         # time and print
         current_iter = (epoch - 1) * len(train_loader) + i + 1
-        max_iter = cfg.epochs * len(train_loader)
+        max_iter = 500 * len(train_loader)
         remain_iter = max_iter - current_iter
 
         iter_time.update(time.time() - end)
@@ -84,24 +93,38 @@ def train_epoch(train_loader, model, model_fn, optimizer, epoch):
         t_h, t_m = divmod(t_m, 60)
         remain_time = '{:02d}:{:02d}:{:02d}'.format(int(t_h), int(t_m), int(t_s))
 
-        if cfg.local_rank == 0 and i % 10 == 0:
+        if i % 1 == 0:
             lr = optimizer.param_groups[0]['lr']
-            sys.stdout.write(
-                "epoch: {}/{} iter: {}/{} lr: {:.5f} loss: {:.4f}({:.4f}) data_time: {:.2f}({:.2f}) iter_time: {:.2f}({:.2f}) remain_time: {remain_time}\n".format
-                (epoch, cfg.epochs, i + 1, len(train_loader), lr, am_dict['loss'].val, am_dict['loss'].avg,
-                data_time.val, data_time.avg, iter_time.val, iter_time.avg, remain_time=remain_time))
-     
+            log_str = "epoch: {}/{} iter: {}/{} lr: {:.5f} loss: {:.4f}({:.4f}) data_time: {:.2f}({:.2f}) iter_time: {:.2f}({:.2f}) remain_time: {remain_time}".format(
+                epoch,
+                500,
+                i + 1,
+                len(train_loader),
+                lr,
+                am_dict['loss'].val,
+                am_dict['loss'].avg,
+                data_time.val,
+                data_time.avg,
+                iter_time.val,
+                iter_time.avg,
+                remain_time=remain_time)
+            for k, v in am_dict.items():
+                log_str += f' {k}: {v.avg:.4f}'
+            print(log_str)
+
         if (i == len(train_loader) - 1): print()
 
-
-    logger.info("epoch: {}/{}, train loss: {:.4f}, time: {}s".format(epoch, cfg.epochs, am_dict['loss'].avg, time.time() - start_epoch))
+    logger.info("epoch: {}/{}, train loss: {:.4f}, time: {}s".format(epoch, cfg.epochs,
+                                                                     am_dict['loss'].avg,
+                                                                     time.time() - start_epoch))
 
     if cfg.local_rank == 0:
-        utils.checkpoint_save(model, optimizer, cfg.exp_path, cfg.config.split('/')[-1][:-5], epoch, cfg.save_freq, use_cuda)
+        utils.checkpoint_save(model, optimizer, cfg.exp_path,
+                              cfg.config.split('/')[-1][:-5], epoch, cfg.save_freq, use_cuda)
 
     for k in am_dict.keys():
         if k in visual_dict.keys():
-            writer.add_scalar(k+'_train', am_dict[k].avg, epoch)
+            writer.add_scalar(k + '_train', am_dict[k].avg, epoch)
 
 
 def eval_epoch(val_loader, model, model_fn, epoch):
@@ -114,28 +137,76 @@ def eval_epoch(val_loader, model, model_fn, epoch):
         for i, batch in enumerate(val_loader):
 
             # prepare input and forward
-            loss, preds, visual_dict, meter_dict = model_fn(batch, model, epoch, semantic_only=cfg.semantic_only)
+            loss, preds, visual_dict, meter_dict = model_fn(
+                batch, model, epoch, semantic_only=cfg.semantic_only)
 
             for k, v in meter_dict.items():
                 if k not in am_dict.keys():
                     am_dict[k] = utils.AverageMeter()
                 am_dict[k].update(v[0], v[1])
-            sys.stdout.write("\riter: {}/{} loss: {:.4f}({:.4f})".format(i + 1, len(val_loader), am_dict['loss'].val, am_dict['loss'].avg))
+            sys.stdout.write("\riter: {}/{} loss: {:.4f}({:.4f})".format(
+                i + 1, len(val_loader), am_dict['loss'].val, am_dict['loss'].avg))
             if (i == len(val_loader) - 1): print()
 
-        logger.info("epoch: {}/{}, val loss: {:.4f}, time: {}s".format(epoch, cfg.epochs, am_dict['loss'].avg, time.time() - start_epoch))
+        logger.info("epoch: {}/{}, val loss: {:.4f}, time: {}s".format(
+            epoch, cfg.epochs, am_dict['loss'].avg,
+            time.time() - start_epoch))
 
         for k in am_dict.keys():
             if k in visual_dict.keys():
                 writer.add_scalar(k + '_eval', am_dict[k].avg, epoch)
 
 
+def get_args():
+    parser = argparse.ArgumentParser('SoftGroup')
+    parser.add_argument('config', type=str, help='path to config file')
+    args = parser.parse_args()
+    return args
+
+
 if __name__ == '__main__':
-    torch.backends.cudnn.enabled = False
+    torch.backends.cudnn.enabled = False  # TODO remove this
+    test_seed = 123
+    random.seed(test_seed)
+    np.random.seed(test_seed)
+    torch.manual_seed(test_seed)
+    torch.cuda.manual_seed_all(test_seed)
+
+    args = get_args()
+    cfg = Munch.fromDict(yaml.safe_load(open(args.config, 'r')))
+
+    model = SoftGroup(**cfg.model)
+    print(f'Load pretrained state dict from {cfg.pretrain}')
+    # model = utils.load_checkpoint(model, cfg.pretrain)
+    model.cuda()
+
+    dataset = S3DISDataset(**cfg.data.train)
+    dataloader = DataLoader(
+        dataset,
+        batch_size=4,
+        collate_fn=dataset.collate_fn,
+        num_workers=4,
+        sampler=None,
+        shuffle=True,
+        drop_last=True,
+        pin_memory=True)
+
+    optimizer = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=cfg.optim.lr)
+
+    # train and val
+    for epoch in range(1, 500 + 1):
+        train_epoch(epoch, dataloader, model, optimizer)
+
+        if utils.is_multiple(epoch, cfg.save_freq) or utils.is_power2(epoch):
+            eval_epoch(dataset.val_data_loader, model, model_fn, epoch)
+
+    import pdb
+    pdb.set_trace()
+
     if cfg.dist == True:
         raise NotImplementedError
         # num_gpus = torch.cuda.device_count()
-        # dist.init_process_group(backend='nccl', rank=cfg.local_rank, 
+        # dist.init_process_group(backend='nccl', rank=cfg.local_rank,
         #     world_size=num_gpus)
         # torch.cuda.set_device(cfg.local_rank)
 
@@ -164,15 +235,18 @@ if __name__ == '__main__':
     assert use_cuda
     model = model.cuda()
 
-    logger.info('#classifier parameters: {}'.format(sum([x.nelement() for x in model.parameters()])))
+    logger.info('#classifier parameters: {}'.format(
+        sum([x.nelement() for x in model.parameters()])))
 
     # optimizer
     if cfg.optim == 'Adam':
         optimizer = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=cfg.lr)
     elif cfg.optim == 'SGD':
-        optimizer = optim.SGD(filter(lambda p: p.requires_grad, model.parameters()), 
-            lr=cfg.lr, momentum=cfg.momentum, weight_decay=cfg.weight_decay)
-
+        optimizer = optim.SGD(
+            filter(lambda p: p.requires_grad, model.parameters()),
+            lr=cfg.lr,
+            momentum=cfg.momentum,
+            weight_decay=cfg.weight_decay)
 
     model_fn = model_fn_decorator()
 
@@ -197,23 +271,20 @@ if __name__ == '__main__':
     else:
         raise NotImplementedError("Not yet supported")
 
-
     # resume from the latest epoch, or specify the epoch to restore
-    start_epoch = utils.checkpoint_restore(cfg, model, optimizer, cfg.exp_path, 
-        cfg.config.split('/')[-1][:-5], use_cuda)      
-
+    start_epoch = utils.checkpoint_restore(cfg, model, optimizer, cfg.exp_path,
+                                           cfg.config.split('/')[-1][:-5], use_cuda)
 
     if cfg.dist:
         # model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
         model = torch.nn.parallel.DistributedDataParallel(
-                model.cuda(cfg.local_rank),
-                device_ids=[cfg.local_rank],
-                output_device=cfg.local_rank,
-                find_unused_parameters=True)
-
+            model.cuda(cfg.local_rank),
+            device_ids=[cfg.local_rank],
+            output_device=cfg.local_rank,
+            find_unused_parameters=True)
 
     # train and val
-    for epoch in range(start_epoch, cfg.epochs + 1):
+    for epoch in range(1, cfg.epochs + 1):
         train_epoch(dataset.train_data_loader, model, model_fn, optimizer, epoch)
 
         if utils.is_multiple(epoch, cfg.save_freq) or utils.is_power2(epoch):
