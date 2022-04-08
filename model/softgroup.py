@@ -3,6 +3,7 @@ import spconv
 import sys
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 from util import utils
 from .blocks import ResidualBlock, UBlock
@@ -24,6 +25,7 @@ class SoftGroup(nn.Module):
                  ignore_label=-100,
                  grouping_cfg=None,
                  instance_voxel_cfg=None,
+                 train_cfg=None,
                  test_cfg=None,
                  fixed_modules=[]):
         super().__init__()
@@ -36,16 +38,8 @@ class SoftGroup(nn.Module):
         self.ignore_label = ignore_label
         self.grouping_cfg = grouping_cfg
         self.instance_voxel_cfg = instance_voxel_cfg
+        self.train_cfg = train_cfg
         self.test_cfg = test_cfg
-
-        # self.score_scale = cfg.score_scale
-        # self.score_spatial_shape = cfg.score_spatial_shape
-        # self.score_mode = cfg.score_mode
-
-        # self.prepare_epochs = cfg.prepare_epochs
-        # self.pretrain_path = cfg.pretrain_path
-        # self.pretrain_module = cfg.pretrain_module
-        # self.fix_module = cfg.fix_module
 
         block = ResidualBlock
         norm_fn = functools.partial(nn.BatchNorm1d, eps=1e-4, momentum=0.1)
@@ -69,19 +63,22 @@ class SoftGroup(nn.Module):
             nn.Linear(channels, 3, bias=True))
 
         # topdown refinement path
-        self.intra_ins_unet = UBlock([channels, 2 * channels], norm_fn, 2, block, indice_key_id=11)
-        self.intra_ins_outputlayer = spconv.SparseSequential(norm_fn(channels), nn.ReLU())
-        self.cls_linear = nn.Linear(channels, instance_classes + 1)
-        self.mask_linear = nn.Sequential(
-            nn.Linear(channels, channels), nn.ReLU(), nn.Linear(channels, instance_classes + 1))
-        self.score_linear = nn.Linear(channels, instance_classes + 1)
+        if not semantic_only:
+            self.intra_ins_unet = UBlock([channels, 2 * channels],
+                                         norm_fn,
+                                         2,
+                                         block,
+                                         indice_key_id=11)
+            self.intra_ins_outputlayer = spconv.SparseSequential(norm_fn(channels), nn.ReLU())
+            self.cls_linear = nn.Linear(channels, instance_classes + 1)
+            self.mask_linear = nn.Sequential(
+                nn.Linear(channels, channels), nn.ReLU(), nn.Linear(channels, instance_classes + 1))
+            self.iou_score_linear = nn.Linear(channels, instance_classes + 1)
 
-        self.semantic_loss = nn.CrossEntropyLoss(ignore_index=ignore_label)
-        self.offset_loss = nn.L1Loss(reduction='sum')
+            nn.init.normal_(self.iou_score_linear.weight, 0, 0.01)
+            nn.init.constant_(self.iou_score_linear.bias, 0)
 
         self.apply(self.set_bn_init)
-        nn.init.normal_(self.score_linear.weight, 0, 0.01)
-        nn.init.constant_(self.score_linear.bias, 0)
 
         for mod in fixed_modules:
             mod = getattr(self, mod)
@@ -95,6 +92,9 @@ class SoftGroup(nn.Module):
         if classname.find('BatchNorm') != -1:
             m.weight.data.fill_(1.0)
             m.bias.data.fill_(0.0)
+
+    def init_weights(self):
+        pass
 
     def forward(self, batch, return_loss=False):
         if return_loss:
@@ -111,9 +111,8 @@ class SoftGroup(nn.Module):
         feats = batch['feats'].cuda()
         semantic_labels = batch['labels'].cuda()
         instance_labels = batch['instance_labels'].cuda()
-        # instance_pointnum = batch['instance_pointnum'].cuda()
-        # instance_cls = batch['instance_cls'].cuda()
-        # batch_offsets = batch['offsets'].cuda()
+        instance_pointnum = batch['instance_pointnum'].cuda()
+        instance_cls = batch['instance_cls'].cuda()
         pt_offset_labels = batch['pt_offset_labels'].cuda()
         spatial_shape = batch['spatial_shape']
         batch_size = batch['batch_size']
@@ -124,9 +123,25 @@ class SoftGroup(nn.Module):
         input = spconv.SparseConvTensor(voxel_feats, voxel_coords.int(), spatial_shape, batch_size)
         semantic_scores, pt_offsets, output_feats, coords_float = self.forward_backbone(
             input, v2p_map, coords_float)
+
+        # point wise losses
         point_wise_loss = self.point_wise_loss(semantic_scores, pt_offsets, semantic_labels,
                                                instance_labels, pt_offset_labels)
         losses.update(point_wise_loss)
+
+        # instance losses
+        if not self.semantic_only:
+            proposals_idx, proposals_offset = self.forward_grouping(semantic_scores, pt_offsets,
+                                                                    batch_idxs, coords_float,
+                                                                    self.grouping_cfg)
+            instance_batch_idxs, cls_scores, iou_scores, mask_scores = self.forward_instance(
+                proposals_idx, proposals_offset, output_feats, coords_float)
+            instance_loss = self.instance_loss(cls_scores, mask_scores, iou_scores, proposals_idx,
+                                               proposals_offset, instance_labels, instance_pointnum,
+                                               instance_cls, instance_batch_idxs)
+            losses.update(instance_loss)
+
+        # parse loss
         loss = sum(v[0] for v in losses.values())
         losses['loss'] = (loss, batch_idxs.size(0))
         return loss, losses
@@ -134,16 +149,72 @@ class SoftGroup(nn.Module):
     def point_wise_loss(self, semantic_scores, pt_offsets, semantic_labels, instance_labels,
                         pt_offset_labels):
         losses = {}
-        semantic_loss = self.semantic_loss(semantic_scores, semantic_labels)
+        semantic_loss = F.cross_entropy(
+            semantic_scores, semantic_labels, ignore_index=self.ignore_label)
         losses['semantic_loss'] = (semantic_loss, semantic_scores.size(0))
 
         pos_inds = instance_labels != self.ignore_label
         if pos_inds.sum() == 0:
             offset_loss = 0 * pt_offsets.sum()
         else:
-            offset_loss = self.offset_loss(pt_offsets[pos_inds],
-                                           pt_offset_labels[pos_inds]) / pos_inds.sum()
+            offset_loss = F.l1_loss(
+                pt_offsets[pos_inds], pt_offset_labels[pos_inds], reduction='sum') / pos_inds.sum()
         losses['offset_loss'] = (offset_loss, pos_inds.sum())
+        return losses
+
+    def instance_loss(self, cls_scores, mask_scores, iou_scores, proposals_idx, proposals_offset,
+                      instance_labels, instance_pointnum, instance_cls, instance_batch_idxs):
+        losses = {}
+        proposals_idx = proposals_idx[:, 1].cuda()
+        proposals_offset = proposals_offset.cuda()
+
+        # cal iou of clustered instance
+        ious_on_cluster = softgroup_ops.get_mask_iou_on_cluster(proposals_idx, proposals_offset,
+                                                                instance_labels, instance_pointnum)
+
+        # filter out background instances
+        fg_inds = (instance_cls != self.ignore_label)
+        fg_instance_cls = instance_cls[fg_inds]
+        fg_ious_on_cluster = ious_on_cluster[:, fg_inds]
+
+        # overlap > thr on fg instances are positive samples
+        max_iou, gt_inds = fg_ious_on_cluster.max(1)
+        pos_inds = max_iou >= self.train_cfg.pos_iou_thr
+        pos_gt_inds = gt_inds[pos_inds]
+
+        # compute cls loss. follow detection convention: 0 -> K - 1 are fg, K is bg
+        labels = fg_instance_cls.new_full((fg_ious_on_cluster.size(0), ), self.instance_classes)
+        labels[pos_inds] = fg_instance_cls[pos_gt_inds]
+        cls_loss = F.cross_entropy(cls_scores, labels)
+        losses['cls_loss'] = (cls_loss, labels.size(0))
+
+        # compute mask loss
+        mask_cls_label = labels[instance_batch_idxs.long()]
+        slice_inds = torch.arange(
+            0, mask_cls_label.size(0), dtype=torch.long, device=mask_cls_label.device)
+        mask_scores_sigmoid_slice = mask_scores.sigmoid()[slice_inds, mask_cls_label]
+        mask_label = softgroup_ops.get_mask_label(proposals_idx, proposals_offset, instance_labels,
+                                                  instance_cls, instance_pointnum, ious_on_cluster,
+                                                  self.train_cfg.pos_iou_thr)
+        mask_label_weight = (mask_label != -1).float()
+        mask_label[mask_label == -1.] = 0.5  # any value is ok
+        mask_loss = F.binary_cross_entropy(
+            mask_scores_sigmoid_slice, mask_label, weight=mask_label_weight, reduction='sum')
+        mask_loss /= (mask_label_weight.sum() + 1)
+        losses['mask_loss'] = (mask_loss, mask_label_weight.sum())
+
+        # compute iou score loss
+        ious = softgroup_ops.get_mask_iou_on_pred(proposals_idx, proposals_offset, instance_labels,
+                                                  instance_pointnum,
+                                                  mask_scores_sigmoid_slice.detach())
+        fg_ious = ious[:, fg_inds]
+        gt_ious, _ = fg_ious.max(1)
+        slice_inds = torch.arange(0, labels.size(0), dtype=torch.long, device=labels.device)
+        iou_score_weight = (labels < self.instance_classes).float()
+        iou_score_slice = iou_scores[slice_inds, labels]
+        iou_score_loss = F.mse_loss(iou_score_slice, gt_ious, reduction='none')
+        iou_score_loss = (iou_score_loss * iou_score_weight).sum() / (iou_score_weight.sum() + 1)
+        losses['iou_score_loss'] = (iou_score_loss, iou_score_weight.sum())
         return losses
 
     def forward_test(self, batch):
@@ -155,9 +226,6 @@ class SoftGroup(nn.Module):
         feats = batch['feats'].cuda()
         labels = batch['labels'].cuda()
         instance_labels = batch['instance_labels'].cuda()
-        # instance_pointnum = batch['instance_pointnum'].cuda()
-        # instance_cls = batch['instance_cls'].cuda()
-        # batch_offsets = batch['offsets'].cuda()
         spatial_shape = batch['spatial_shape']
         batch_size = batch['batch_size']
 
@@ -280,22 +348,20 @@ class SoftGroup(nn.Module):
         input_feats, inp_map = self.clusters_voxelization(proposals_idx, proposals_offset,
                                                           output_feats, coords_float,
                                                           **self.instance_voxel_cfg)
-
-        # predict instance scores
-        score = self.intra_ins_unet(input_feats)
-        score = self.intra_ins_outputlayer(score)
+        feats = self.intra_ins_unet(input_feats)
+        feats = self.intra_ins_outputlayer(feats)
 
         # predict mask scores
-        mask_scores = self.mask_linear(score.features)
+        mask_scores = self.mask_linear(feats.features)
         mask_scores = mask_scores[inp_map.long()]
-        scores_batch_idxs = score.indices[:, 0][inp_map.long()]
+        instance_batch_idxs = feats.indices[:, 0][inp_map.long()]
 
-        # predict instance scores
-        score_feats = self.global_pool(score)
-        cls_scores = self.cls_linear(score_feats)
-        iou_scores = self.score_linear(score_feats)
+        # predict instance cls and iou scores
+        feats = self.global_pool(feats)
+        cls_scores = self.cls_linear(feats)
+        iou_scores = self.iou_score_linear(feats)
 
-        return scores_batch_idxs, cls_scores, iou_scores, mask_scores
+        return instance_batch_idxs, cls_scores, iou_scores, mask_scores
 
     def get_instances(self, scan_id, proposals_idx, semantic_scores, cls_scores, iou_scores,
                       mask_scores):

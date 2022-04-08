@@ -15,12 +15,14 @@ model:
   instance_voxel_cfg:
     scale: 50
     spatial_shape: 20
+  train_cfg:
+    pos_iou_thr: 0.5
   test_cfg:
     x4_split: True
     cls_score_thr: 0.001
     mask_score_thr: -0.5
     min_npoint: 100
-  fixed_modules: []
+  fixed_modules: ['input_conv', 'unet', 'output_layer', 'semantic_linear', 'offset_linear']
 
 data:
   train:
@@ -54,8 +56,8 @@ optimizer:
   type: 'Adam'
   lr: 0.001
 
-epochs: 512
-step_epoch: 100
-save_freq: 8
-pretrain: 'hais_ckpt.pth'
-work_dir: 'work_dirs/softgroup_scannet'
+epochs: 30  # actual epochs =  30 * repeat
+step_epoch: 0
+save_freq: 2
+pretrain: 'exp/s3dis/softgroup/softgroup_fold5_s3dis/softgroup_fold5_s3dis-000000030.pth'
+work_dir: 'work_dirs/softgroup_s3dis'
