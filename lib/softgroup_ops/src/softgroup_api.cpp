@@ -5,10 +5,6 @@
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
 
-  m.def("hierarchical_aggregation", &hierarchical_aggregation,
-        "hierarchical_aggregation");
-  // m.def("cal_iou_and_masklabel", &cal_iou_and_masklabel,
-  // "cal_iou_and_masklabel");
   m.def("get_mask_iou_on_cluster", &get_mask_iou_on_cluster,
         "get_mask_iou_on_cluster");
   m.def("get_mask_iou_on_pred", &get_mask_iou_on_pred, "get_mask_iou_on_pred");

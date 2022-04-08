@@ -134,6 +134,10 @@ class SoftGroup(nn.Module):
             proposals_idx, proposals_offset = self.forward_grouping(semantic_scores, pt_offsets,
                                                                     batch_idxs, coords_float,
                                                                     self.grouping_cfg)
+            if proposals_offset.shape[0] > self.train_cfg.max_proposal_num:
+                proposals_offset = proposals_offset[:self.train_cfg.max_proposal_num + 1]
+                proposals_idx = proposals_idx[:proposals_offset[-1]]
+                assert proposals_idx.shape[0] == proposals_offset[-1]
             instance_batch_idxs, cls_scores, iou_scores, mask_scores = self.forward_instance(
                 proposals_idx, proposals_offset, output_feats, coords_float)
             instance_loss = self.instance_loss(cls_scores, mask_scores, iou_scores, proposals_idx,
@@ -303,32 +307,27 @@ class SoftGroup(nn.Module):
         proposals_offset_list = []
         batch_size = batch_idxs.max() + 1
         semantic_scores = semantic_scores.softmax(dim=-1)
-        semantic_preds = semantic_scores.max(1)[1]  # TODO remove this
 
         radius = self.grouping_cfg.radius
         mean_active = self.grouping_cfg.mean_active
+        npoint_thr = self.grouping_cfg.npoint_thr
         class_numpoint_mean = torch.tensor(
             self.grouping_cfg.class_numpoint_mean, dtype=torch.float32)
-        training_mode = None  # TODO remove this
         for class_id in range(self.semantic_classes):
-            # ignore "floor" and "wall"
-            if class_id < 2:
+            if class_id in self.grouping_cfg.ignore_classes:
                 continue
             scores = semantic_scores[:, class_id].contiguous()
             object_idxs = (scores > self.grouping_cfg.score_thr).nonzero().view(-1)
-            if object_idxs.size(0) < 100:  # TODO
+            if object_idxs.size(0) < self.test_cfg.min_npoint:
                 continue
             batch_idxs_ = batch_idxs[object_idxs]
             batch_offsets_ = utils.get_batch_offsets(batch_idxs_, batch_size)
             coords_ = coords_float[object_idxs]
-            pt_offsets_ = pt_offsets[object_idxs]  # (N_fg, 3), float32
-            semantic_preds_cpu = semantic_preds[object_idxs].int().cpu()
+            pt_offsets_ = pt_offsets[object_idxs]
             idx, start_len = softgroup_ops.ballquery_batch_p(coords_ + pt_offsets_, batch_idxs_,
                                                              batch_offsets_, radius, mean_active)
-            using_set_aggr = False  # TODO refactor this
-            proposals_idx, proposals_offset = softgroup_ops.hierarchical_aggregation(
-                class_numpoint_mean, semantic_preds_cpu, (coords_ + pt_offsets_).cpu(), idx.cpu(),
-                start_len.cpu(), batch_idxs_.cpu(), training_mode, using_set_aggr, class_id)
+            proposals_idx, proposals_offset = softgroup_ops.bfs_cluster(
+                class_numpoint_mean, idx.cpu(), start_len.cpu(), npoint_thr, class_id)
             proposals_idx[:, 1] = object_idxs[proposals_idx[:, 1].long()].int()
 
             # merge proposals

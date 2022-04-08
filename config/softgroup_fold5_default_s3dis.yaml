@@ -12,10 +12,13 @@ model:
     mean_active: 300
     class_numpoint_mean: [1823, 7457, 6189, 7424, 34229, 1724, 5439,
                           6016, 39796, 5279, 5092, 12210, 10225]
+    npoint_thr: 0.05  # absolute if class_numpoint == -1, relative if class_numpoint != -1
+    ignore_classes: [0, 1]
   instance_voxel_cfg:
     scale: 50
     spatial_shape: 20
   train_cfg:
+    max_proposal_num: 200
     pos_iou_thr: 0.5
   test_cfg:
     x4_split: True

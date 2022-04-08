@@ -1,11 +1,8 @@
 #ifndef HAIS_H
 #define HAIS_H
-#include "datatype/datatype.h"
-
-#include "cal_iou_and_masklabel/cal_iou_and_masklabel.h"
-#include "hierarchical_aggregation/hierarchical_aggregation.h"
-
 #include "bfs_cluster/bfs_cluster.h"
+#include "cal_iou_and_masklabel/cal_iou_and_masklabel.h"
+#include "datatype/datatype.h"
 #include "get_iou/get_iou.h"
 #include "roipool/roipool.h"
 #include "sec_mean/sec_mean.h"

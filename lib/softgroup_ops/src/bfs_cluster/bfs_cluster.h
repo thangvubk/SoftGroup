@@ -21,9 +21,10 @@ int ballquery_batch_p_cuda(int n, int meanActive, float radius,
                            const int *batch_offsets, int *idx, int *start_len,
                            cudaStream_t stream);
 
-void bfs_cluster(at::Tensor semantic_label_tensor,
+void bfs_cluster(at::Tensor class_numpoint_mean_tensor,
                  at::Tensor ball_query_idxs_tensor, at::Tensor start_len_tensor,
                  at::Tensor cluster_idxs_tensor,
-                 at::Tensor cluster_offsets_tensor, const int N, int threshold);
+                 at::Tensor cluster_offsets_tensor, const int N,
+                 float threshold, const int class_id);
 
 #endif // BFS_CLUSTER_H
