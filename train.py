@@ -113,7 +113,6 @@ if __name__ == '__main__':
 
         for i, batch in enumerate(train_loader, start=1):
             data_time.update(time.time() - end)
-            torch.cuda.empty_cache()
 
             utils.cosine_lr_after_step(optimizer, cfg.optimizer.lr, epoch - 1, cfg.step_epoch,
                                        cfg.epochs)
@@ -144,7 +143,7 @@ if __name__ == '__main__':
                 writer.add_scalar(k, v.val, current_iter)
             if i % 10 == 0:
                 log_str = f'Epoch [{epoch}/{cfg.epochs}][{i}/{len(train_loader)}]  '
-                log_str += f'lr: {lr:.5f}, eta: {remain_time}, mem: {get_max_memory()}, '\
+                log_str += f'lr: {lr:.2g}, eta: {remain_time}, mem: {get_max_memory()}, '\
                     f'data_time: {data_time.val:.2f}, iter_time: {iter_time.val:.2f}'
                 for k, v in meter_dict.items():
                     log_str += f', {k}: {v.val:.4f}'
