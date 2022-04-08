@@ -1,10 +1,10 @@
 # Modified from https://github.com/facebookresearch/votenet/blob/main/utils/eval_det.py
-from multiprocessing import Pool
-import numpy as np
-import os.path as osp
 import glob
+import os.path as osp
+from multiprocessing import Pool
+
+import numpy as np
 import torch
-import tqdm
 
 
 def voc_ap(rec, prec, use_07_metric=False):
@@ -42,19 +42,18 @@ def voc_ap(rec, prec, use_07_metric=False):
 
 
 def get_iou(box_a, box_b, eps=1e-10):
-
-
     """Computes IoU of two axis aligned bboxes.
+
     Args:
-        box_a, box_b: xyzxyz     
+        box_a, box_b: xyzxyz
     Returns:
         iou
-    """        
-        
+    """
+
     max_a = box_a[3:]
-    max_b = box_b[3:] 
+    max_b = box_b[3:]
     min_max = np.array([max_a, max_b]).min(0)
-        
+
     min_a = box_a[0:3]
     min_b = box_b[0:3]
     max_min = np.array([min_a, min_b]).max(0)
@@ -65,18 +64,14 @@ def get_iou(box_a, box_b, eps=1e-10):
     vol_a = (box_a[3:6] - box_a[:3]).prod()
     vol_b = (box_b[3:6] - box_b[:3]).prod()
     union = vol_a + vol_b - intersection
-    return 1.0*intersection / union
+    return 1.0 * intersection / union
 
 
 def get_iou_main(get_iou_func, args):
     return get_iou_func(*args)
 
 
-def eval_det_cls(pred,
-                 gt,
-                 ovthresh=0.25,
-                 use_07_metric=False,
-                 get_iou_func=get_iou):
+def eval_det_cls(pred, gt, ovthresh=0.25, use_07_metric=False, get_iou_func=get_iou):
     """Generic functions to compute precision/recall for object detection for a
     single class.
 
@@ -165,16 +160,11 @@ def eval_det_cls(pred,
 
 def eval_det_cls_wrapper(arguments):
     pred, gt, ovthresh, use_07_metric, get_iou_func = arguments
-    rec, prec, ap = eval_det_cls(pred, gt, ovthresh, use_07_metric,
-                                 get_iou_func)
+    rec, prec, ap = eval_det_cls(pred, gt, ovthresh, use_07_metric, get_iou_func)
     return (rec, prec, ap)
 
 
-def eval_det(pred_all,
-             gt_all,
-             ovthresh=0.25,
-             use_07_metric=False,
-             get_iou_func=get_iou):
+def eval_det(pred_all, gt_all, ovthresh=0.25, use_07_metric=False, get_iou_func=get_iou):
     """Generic functions to compute precision/recall for object detection for
     multiple classes.
 
@@ -213,18 +203,14 @@ def eval_det(pred_all,
     prec = {}
     ap = {}
     for classname in gt.keys():
-        rec[classname], prec[classname], ap[classname] = eval_det_cls(
-            pred[classname], gt[classname], ovthresh, use_07_metric,
-            get_iou_func)
+        rec[classname], prec[classname], ap[classname] = eval_det_cls(pred[classname],
+                                                                      gt[classname], ovthresh,
+                                                                      use_07_metric, get_iou_func)
 
     return rec, prec, ap
 
 
-def eval_sphere(pred_all,
-                gt_all,
-                ovthresh=0.25,
-                use_07_metric=False,
-                get_iou_func=get_iou):
+def eval_sphere(pred_all, gt_all, ovthresh=0.25, use_07_metric=False, get_iou_func=get_iou):
     """Generic functions to compute precision/recall for object detection for
     multiple classes.
 
@@ -263,10 +249,9 @@ def eval_sphere(pred_all,
     prec = {}
     ap = {}
     p = Pool(processes=10)
-    ret_values = p.map(eval_det_cls_wrapper, [
-        (pred[classname], gt[classname], ovthresh, use_07_metric, get_iou_func)
-        for classname in gt.keys() if classname in pred
-    ])
+    ret_values = p.map(eval_det_cls_wrapper,
+                       [(pred[classname], gt[classname], ovthresh, use_07_metric, get_iou_func)
+                        for classname in gt.keys() if classname in pred])
     p.close()
     for i, classname in enumerate(gt.keys()):
         if classname in pred:
@@ -280,7 +265,11 @@ def eval_sphere(pred_all,
 
 
 if __name__ == '__main__':
-    CLASS_LABELS = ['cabinet', 'bed', 'chair', 'sofa', 'table', 'door', 'window', 'bookshelf', 'picture', 'counter', 'desk', 'curtain', 'refrigerator', 'shower curtain', 'toilet', 'sink', 'bathtub', 'otherfurniture']
+    CLASS_LABELS = [
+        'cabinet', 'bed', 'chair', 'sofa', 'table', 'door', 'window', 'bookshelf', 'picture',
+        'counter', 'desk', 'curtain', 'refrigerator', 'shower curtain', 'toilet', 'sink', 'bathtub',
+        'otherfurniture'
+    ]
     VALID_CLASS_IDS = [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 16, 24, 28, 33, 34, 36, 39]
     data_path = './dataset/scannetv2/val/'
     prediction_path = './exp/scannetv2/softgroup/softgroup_default_scannet/result/val'
@@ -291,7 +280,7 @@ if __name__ == '__main__':
     def single_process(instance_path):
         img_id = osp.basename(instance_path)[:-4]
         print('Processing', img_id)
-        gt = osp.join(data_path, img_id + '_inst_nostuff.pth')  # 0-based index 
+        gt = osp.join(data_path, img_id + '_inst_nostuff.pth')  # 0-based index
         assert osp.isfile(gt)
         coords, rgb, semantic_label, instance_label = torch.load(gt)
         pred_infos = open(instance_path, 'r').readlines()
@@ -318,7 +307,7 @@ if __name__ == '__main__':
                 box_min = instance.min(0)
                 box_max = instance.max(0)
                 box = np.concatenate([box_min, box_max])
-                class_name = CLASS_LABELS[cls_id -2]
+                class_name = CLASS_LABELS[cls_id - 2]
                 gt.append((class_name, box))
         return img_id, pred, gt
 
@@ -332,7 +321,7 @@ if __name__ == '__main__':
     for img_id, pred, gt in results:
         pred_all[img_id] = pred
         gt_all[img_id] = gt
-   
+
     print('Evaluating...')
     eval_res = eval_sphere(pred_all, gt_all, ovthresh=iou_threshold)
     aps = list(eval_res[-1].values())

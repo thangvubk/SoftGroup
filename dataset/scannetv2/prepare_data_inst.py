@@ -1,10 +1,15 @@
-'''
-Modified from SparseConvNet data preparation: https://github.com/facebookresearch/SparseConvNet/blob/master/examples/ScanNet/prepare_data.py
-'''
+"""Modified from SparseConvNet data preparation: https://github.com/facebookres
+earch/SparseConvNet/blob/master/examples/ScanNet/prepare_data.py."""
 
-import glob, plyfile, numpy as np, multiprocessing as mp, torch, json, argparse
+import argparse
+import glob
+import json
+import multiprocessing as mp
 
+import numpy as np
+import plyfile
 import scannet_util
+import torch
 
 # Map relevant classes to {0,1,...,19}, and ignored classes to -100
 remapper = np.ones(150) * (-100)
@@ -24,7 +29,7 @@ if opt.data_split != 'test':
     files4 = sorted(glob.glob(split + '/*[0-9].aggregation.json'))
     assert len(files) == len(files2)
     assert len(files) == len(files3)
-    assert len(files) == len(files4), "{} {}".format(len(files), len(files4))
+    assert len(files) == len(files4), '{} {}'.format(len(files), len(files4))
 
 
 def f_test(fn):

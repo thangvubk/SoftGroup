@@ -19,14 +19,14 @@ conda activate softgroup
 git clone https://github.com/thangvubk/SoftGroup.git --recursive
 ```
 
-  
+
 3\) Install the requirements.
 ```
 cd SoftGroup
 pip install -r requirements.txt
 ```
 
-4\) Install spconv 
+4\) Install spconv
 
 
 *  Install the spconv dependencies.

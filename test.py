@@ -1,15 +1,15 @@
 import argparse
-import numpy as np
 import random
+
+import numpy as np
 import torch
 import yaml
-from softgroup.data import build_dataloader, build_dataset
 from munch import Munch
-from tqdm import tqdm
-
+from softgroup.data import build_dataloader, build_dataset
 from softgroup.evaluation import ScanNetEval
 from softgroup.model import SoftGroup
 from softgroup.util import get_root_logger, load_checkpoint
+from tqdm import tqdm
 
 
 def get_args():

@@ -1,4 +1,5 @@
 import functools
+
 import spconv
 import torch
 import torch.nn as nn
@@ -263,7 +264,7 @@ class SoftGroup(nn.Module):
         return semantic_scores, pt_offsets, output_feats, coords
 
     def forward_4_parts(self, x, input_map):
-        """Helper function for s3dis: devide and forward 4 parts of a scene"""
+        """Helper function for s3dis: devide and forward 4 parts of a scene."""
         outs = []
         for i in range(4):
             inds = x.indices[:, 0] == i
@@ -280,7 +281,7 @@ class SoftGroup(nn.Module):
         return outs[input_map.long()]
 
     def merge_4_parts(self, x):
-        """Helper function for s3dis: take output of 4 parts and merge them"""
+        """Helper function for s3dis: take output of 4 parts and merge them."""
         inds = torch.arange(x.size(0), device=x.device)
         p1 = inds[::4]
         p2 = inds[1::4]
@@ -411,7 +412,7 @@ class SoftGroup(nn.Module):
         return instances
 
     def get_gt_instances(self, labels, instance_labels):
-        """Get gt instances for evaluation"""
+        """Get gt instances for evaluation."""
         # convert to evaluation format 0: ignore, 1->N: valid
         label_shift = self.semantic_classes - self.instance_classes
         labels = labels - label_shift + 1

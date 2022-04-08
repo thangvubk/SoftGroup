@@ -1,9 +1,9 @@
-torch==1.1
 cmake>=3.13.2
+pandas
 plyfile
-tensorboardX
 pyyaml==5.4.1
+scikit-learn
 scipy
 six
-pandas
-scikit-learn
+tensorboardX
+torch==1.1

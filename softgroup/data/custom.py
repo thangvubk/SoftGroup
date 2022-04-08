@@ -1,10 +1,11 @@
 import math
-import numpy as np
 import os.path as osp
+from glob import glob
+
+import numpy as np
 import scipy.interpolate
 import scipy.ndimage
 import torch
-from glob import glob
 from torch.utils.data import Dataset
 
 from ..lib.softgroup_ops import voxelization_idx

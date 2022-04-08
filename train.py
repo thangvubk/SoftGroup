@@ -1,21 +1,21 @@
 import argparse
 import datetime
-import numpy as np
 import os
 import os.path as osp
 import random
 import shutil
 import sys
 import time
+
+import numpy as np
 import torch
 import yaml
 from data import build_dataloader, build_dataset
 from model.softgroup import SoftGroup
 from munch import Munch
-from tensorboardX import SummaryWriter
-
 from softgroup.util import (AverageMeter, build_optimizer, checkpoint_save, cosine_lr_after_step,
                             get_max_memory, get_root_logger, load_checkpoint)
+from tensorboardX import SummaryWriter
 
 
 def eval_epoch(val_loader, model, model_fn, epoch):
@@ -35,10 +35,10 @@ def eval_epoch(val_loader, model, model_fn, epoch):
                 if k not in am_dict.keys():
                     am_dict[k] = AverageMeter()
                 am_dict[k].update(v[0], v[1])
-            sys.stdout.write("\riter: {}/{} loss: {:.4f}({:.4f})".format(
+            sys.stdout.write('\riter: {}/{} loss: {:.4f}({:.4f})'.format(
                 i + 1, len(val_loader), am_dict['loss'].val, am_dict['loss'].avg))
 
-        logger.info("epoch: {}/{}, val loss: {:.4f}, time: {}s".format(
+        logger.info('epoch: {}/{}, val loss: {:.4f}, time: {}s'.format(
             epoch, cfg.epochs, am_dict['loss'].avg,
             time.time() - start_epoch))
 

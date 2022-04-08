@@ -1,11 +1,10 @@
-'''
-Generate instance groundtruth .txt files (for evaluation)
-'''
+"""Generate instance groundtruth .txt files (for evaluation)"""
+
+import glob
+import os
 
 import numpy as np
-import glob
 import torch
-import os
 
 semantic_label_idxs = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 16, 24, 28, 33, 34, 36, 39]
 semantic_label_names = [
@@ -36,7 +35,8 @@ if __name__ == '__main__':
         for inst_id in range(instance_num):
             instance_mask = np.where(instance_label == inst_id)[0]
             sem_id = int(label[instance_mask[0]])
-            if (sem_id == -100): sem_id = 0
+            if (sem_id == -100):
+                sem_id = 0
             semantic_label = semantic_label_idxs[sem_id]
             instance_label_new[instance_mask] = semantic_label * 1000 + inst_id + 1
 

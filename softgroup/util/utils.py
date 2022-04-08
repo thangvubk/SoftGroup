@@ -1,12 +1,13 @@
 import os
 import os.path as osp
-import torch
 from collections import OrderedDict
 from math import cos, pi
 
+import torch
+
 
 class AverageMeter(object):
-    """Computes and stores the average and current value"""
+    """Computes and stores the average and current value."""
 
     def __init__(self):
         self.reset()
@@ -46,6 +47,7 @@ def is_multiple(num, multiple):
 
 def weights_to_cpu(state_dict):
     """Copy a model state_dict to cpu.
+
     Args:
         state_dict (OrderedDict): Model weights on GPU.
     Returns:

@@ -284,7 +284,7 @@ class BFSCluster(Function):
         :param ctx:
         :param ball_query_idxs: (nActive), int
         :param start_len: (N, 2), int
-        :return: cluster_idxs:  int (sumNPoint, 2), dim 0 for cluster_id, dim 1 for corresponding point idxs in N
+        :return: cluster_idxs:  int (sumNPoint, 2), dim 0 for cluster_id, dim 1 for point idxs in N
         :return: cluster_offsets: int (nCluster + 1)
         '''
 
