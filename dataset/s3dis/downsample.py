@@ -17,9 +17,8 @@ from scipy.spatial import cKDTree
 #     raise ImportError("must install `pointgroup_ops` from lib")
 
 
-def random_sample(coords: np.ndarray, colors: np.ndarray,
-                  semantic_labels: np.ndarray, instance_labels: np.ndarray,
-                  ratio: float):
+def random_sample(coords: np.ndarray, colors: np.ndarray, semantic_labels: np.ndarray,
+                  instance_labels: np.ndarray, ratio: float):
     num_points = coords.shape[0]
     num_sample = int(num_points * ratio)
     sample_ids = sample(range(num_points), num_sample)
@@ -33,31 +32,25 @@ def random_sample(coords: np.ndarray, colors: np.ndarray,
     return coords, colors, semantic_labels, instance_labels
 
 
-def voxelize(coords: np.ndarray, colors: np.ndarray,
-             semantic_labels: np.ndarray, instance_labels: np.ndarray,
-             voxel_size: float):
+def voxelize(coords: np.ndarray, colors: np.ndarray, semantic_labels: np.ndarray,
+             instance_labels: np.ndarray, voxel_size: float):
     # move to positive area
     coords_offset = coords.min(0)
     coords -= coords_offset
     origin_coords = coords.copy()
     # begin voxelize
     num_points = coords.shape[0]
-    voxelize_coords = torch.from_numpy(coords /
-                                       voxel_size).long()  # [num_point, 3]
-    voxelize_coords = torch.cat(
-        [torch.zeros(num_points).view(-1, 1).long(), voxelize_coords],
-        1)  # [num_point, 1 + 3]
+    voxelize_coords = torch.from_numpy(coords / voxel_size).long()  # [num_point, 3]
+    voxelize_coords = torch.cat([torch.zeros(num_points).view(-1, 1).long(), voxelize_coords],
+                                1)  # [num_point, 1 + 3]
     # mode=4 is mean pooling
-    voxelize_coords, p2v_map, v2p_map = pointgroup_ops.voxelization_idx(
-        voxelize_coords, 1, 4)
+    voxelize_coords, p2v_map, v2p_map = pointgroup_ops.voxelization_idx(voxelize_coords, 1, 4)
     v2p_map = v2p_map.cuda()
     coords = torch.from_numpy(coords).float().cuda()
-    coords = pointgroup_ops.voxelization(coords, v2p_map,
-                                         4).cpu().numpy()  # [num_voxel, 3]
+    coords = pointgroup_ops.voxelization(coords, v2p_map, 4).cpu().numpy()  # [num_voxel, 3]
     coords += coords_offset
     colors = torch.from_numpy(colors).float().cuda()
-    colors = pointgroup_ops.voxelization(colors, v2p_map,
-                                         4).cpu().numpy()  # [num_voxel, 3]
+    colors = pointgroup_ops.voxelization(colors, v2p_map, 4).cpu().numpy()  # [num_voxel, 3]
 
     # processing labels individually (nearest search)
     voxelize_coords = voxelize_coords[:, 1:].cpu().numpy() * voxel_size
@@ -71,24 +64,16 @@ def voxelize(coords: np.ndarray, colors: np.ndarray,
 
 
 def get_parser():
-    parser = argparse.ArgumentParser(
-        description="downsample s3dis by voxelization")
-    parser.add_argument("--data-dir",
-                        type=str,
-                        default="./preprocess",
-                        help="directory save processed data")
-    parser.add_argument("--ratio",
-                        type=float,
-                        default=0.25,
-                        help="random downsample ratio")
+    parser = argparse.ArgumentParser(description="downsample s3dis by voxelization")
+    parser.add_argument(
+        "--data-dir", type=str, default="./preprocess", help="directory save processed data")
+    parser.add_argument("--ratio", type=float, default=0.25, help="random downsample ratio")
     parser.add_argument(
         "--voxel-size",
         type=float,
         default=None,
         help="voxelization size (priority is higher than voxel-size)")
-    parser.add_argument("--verbose",
-                        action="store_true",
-                        help="show partition information or not")
+    parser.add_argument("--verbose", action="store_true", help="show partition information or not")
 
     args_cfg = parser.parse_args()
 
@@ -129,5 +114,4 @@ if __name__ == "__main__":
             coords, colors, semantic_labels, instance_labels = \
                 random_sample(coords, colors, semantic_labels, instance_labels, args.ratio)
 
-        torch.save((coords, colors, semantic_labels, instance_labels,
-                    room_label, scene), save_path)
+        torch.save((coords, colors, semantic_labels, instance_labels, room_label, scene), save_path)

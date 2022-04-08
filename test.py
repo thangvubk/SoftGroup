@@ -3,17 +3,13 @@ import numpy as np
 import random
 import torch
 import yaml
+from softgroup.data import build_dataloader, build_dataset
 from munch import Munch
 from tqdm import tqdm
 
-import util.utils as utils
-from evaluation import ScanNetEval
-from model.softgroup import SoftGroup
-
-from data.scannetv2 import ScanNetDataset
-from torch.utils.data import DataLoader
-from util import get_root_logger
-from data import build_dataset, build_dataloader
+from softgroup.evaluation import ScanNetEval
+from softgroup.model import SoftGroup
+from softgroup.util import get_root_logger, load_checkpoint
 
 
 def get_args():
@@ -78,7 +74,7 @@ if __name__ == '__main__':
 
     model = SoftGroup(**cfg.model)
     logger.info(f'Load state dict from {args.checkpoint}')
-    utils.load_checkpoint(args.checkpoint, logger, model)
+    load_checkpoint(args.checkpoint, logger, model)
     model.cuda()
 
     dataset = build_dataset(cfg.data.test, logger)

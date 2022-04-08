@@ -103,24 +103,14 @@ def read_s3dis_format(area_id: str,
 
 def get_parser():
     parser = argparse.ArgumentParser(description="s3dis data prepare")
-    parser.add_argument("--data-root",
-                        type=str,
-                        default="./Stanford3dDataset_v1.2",
-                        help="root dir save data")
-    parser.add_argument("--save-dir",
-                        type=str,
-                        default="./preprocess",
-                        help="directory save processed data")
     parser.add_argument(
-        "--patch",
-        action="store_true",
-        help="patch data or not (just patch at first time running)")
-    parser.add_argument("--align",
-                        action="store_true",
-                        help="processing aligned dataset or not")
-    parser.add_argument("--verbose",
-                        action="store_true",
-                        help="show processing room name or not")
+        "--data-root", type=str, default="./Stanford3dDataset_v1.2", help="root dir save data")
+    parser.add_argument(
+        "--save-dir", type=str, default="./preprocess", help="directory save processed data")
+    parser.add_argument(
+        "--patch", action="store_true", help="patch data or not (just patch at first time running)")
+    parser.add_argument("--align", action="store_true", help="processing aligned dataset or not")
+    parser.add_argument("--verbose", action="store_true", help="show processing room name or not")
 
     args_cfg = parser.parse_args()
 
@@ -141,14 +131,10 @@ if __name__ == "__main__":
                 f"patch -ruN -p0 -d  {data_root} < {osp.join(osp.dirname(__file__), 's3dis_align.patch')}"
             )
             # rename to avoid room_name conflict
-            if osp.exists(
-                    osp.join(data_root, "Area_6", "copyRoom_1",
-                             "copy_Room_1.txt")):
+            if osp.exists(osp.join(data_root, "Area_6", "copyRoom_1", "copy_Room_1.txt")):
                 os.rename(
-                    osp.join(data_root, "Area_6", "copyRoom_1",
-                             "copy_Room_1.txt"),
-                    osp.join(data_root, "Area_6", "copyRoom_1",
-                             "copyRoom_1.txt"))
+                    osp.join(data_root, "Area_6", "copyRoom_1", "copy_Room_1.txt"),
+                    osp.join(data_root, "Area_6", "copyRoom_1", "copyRoom_1.txt"))
         else:
             os.system(
                 f"patch -ruN -p0 -d  {data_root} < {osp.join(osp.dirname(__file__), 's3dis.patch')}"
@@ -182,5 +168,4 @@ if __name__ == "__main__":
             (xyz, rgb, semantic_labels, instance_labels,
              room_label) = read_s3dis_format(area_id, room_name, data_root)
             rgb = (rgb / 127.5) - 1
-            torch.save((xyz, rgb, semantic_labels, instance_labels, room_label,
-                        scene), save_path)
+            torch.save((xyz, rgb, semantic_labels, instance_labels, room_label, scene), save_path)

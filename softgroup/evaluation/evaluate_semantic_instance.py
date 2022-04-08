@@ -39,14 +39,10 @@ class ScanNetEval(object):
         dist_confs = [self.distance_confs[0]]
 
         # results: class x iou
-        ap = np.zeros(
-            (len(dist_threshes), len(self.eval_class_labels), len(ious)),
-            np.float)
-        rc = np.zeros(
-            (len(dist_threshes), len(self.eval_class_labels), len(ious)),
-            np.float)
-        for di, (min_region_size, distance_thresh, distance_conf) in enumerate(
-                zip(min_region_sizes, dist_threshes, dist_confs)):
+        ap = np.zeros((len(dist_threshes), len(self.eval_class_labels), len(ious)), np.float)
+        rc = np.zeros((len(dist_threshes), len(self.eval_class_labels), len(ious)), np.float)
+        for di, (min_region_size, distance_thresh,
+                 distance_conf) in enumerate(zip(min_region_sizes, dist_threshes, dist_confs)):
             for oi, iou_th in enumerate(ious):
                 pred_visited = {}
                 for m in matches:
@@ -67,10 +63,8 @@ class ScanNetEval(object):
                         # filter groups in ground truth
                         gt_instances = [
                             gt for gt in gt_instances
-                            if gt['instance_id'] >= 1000
-                            and gt['vert_count'] >= min_region_size
-                            and gt['med_dist'] <= distance_thresh
-                            and gt['dist_conf'] >= distance_conf
+                            if gt['instance_id'] >= 1000 and gt['vert_count'] >= min_region_size and
+                            gt['med_dist'] <= distance_thresh and gt['dist_conf'] >= distance_conf
                         ]
                         if gt_instances:
                             has_gt = True
@@ -78,8 +72,7 @@ class ScanNetEval(object):
                             has_pred = True
 
                         cur_true = np.ones(len(gt_instances))
-                        cur_score = np.ones(
-                            len(gt_instances)) * (-float('inf'))
+                        cur_score = np.ones(len(gt_instances)) * (-float('inf'))
                         cur_match = np.zeros(len(gt_instances), dtype=np.bool)
                         # collect matches
                         for (gti, gt) in enumerate(gt_instances):
@@ -96,15 +89,12 @@ class ScanNetEval(object):
                                     # the prediction with the lower score is
                                     # automatically a FP
                                     if cur_match[gti]:
-                                        max_score = max(
-                                            cur_score[gti], confidence)
-                                        min_score = min(
-                                            cur_score[gti], confidence)
+                                        max_score = max(cur_score[gti], confidence)
+                                        min_score = min(cur_score[gti], confidence)
                                         cur_score[gti] = max_score
                                         # append false positive
                                         cur_true = np.append(cur_true, 0)
-                                        cur_score = np.append(
-                                            cur_score, min_score)
+                                        cur_score = np.append(cur_score, min_score)
                                         cur_match = np.append(cur_match, True)
                                     # otherwise set score
                                     else:
@@ -135,17 +125,14 @@ class ScanNetEval(object):
                                     # small ground truth instances
                                     if (gt['vert_count'] < min_region_size
                                             or gt['med_dist'] > distance_thresh
-                                            or
-                                            gt['dist_conf'] < distance_conf):
+                                            or gt['dist_conf'] < distance_conf):
                                         num_ignore += gt['intersection']
-                                proportion_ignore = float(
-                                    num_ignore) / pred['vert_count']
+                                proportion_ignore = float(num_ignore) / pred['vert_count']
                                 # if not ignored append false positive
                                 if proportion_ignore <= iou_th:
                                     cur_true = np.append(cur_true, 0)
                                     confidence = pred['confidence']
-                                    cur_score = np.append(
-                                        cur_score, confidence)
+                                    cur_score = np.append(cur_score, confidence)
 
                         # append to overall results
                         y_true = np.append(y_true, cur_true)
@@ -162,8 +149,7 @@ class ScanNetEval(object):
                         y_true_sorted_cumsum = np.cumsum(y_true_sorted)
 
                         # unique thresholds
-                        (thresholds, unique_indices) = np.unique(
-                            y_score_sorted, return_index=True)
+                        (thresholds, unique_indices) = np.unique(y_score_sorted, return_index=True)
                         num_prec_recall = len(unique_indices) + 1
 
                         # prepare precision recall
@@ -173,8 +159,7 @@ class ScanNetEval(object):
                         recall = np.zeros(num_prec_recall)
 
                         # deal with the first point
-                        y_true_sorted_cumsum = np.append(
-                            y_true_sorted_cumsum, 0)
+                        y_true_sorted_cumsum = np.append(y_true_sorted_cumsum, 0)
                         # deal with remaining
                         for idx_res, idx_scores in enumerate(unique_indices):
                             cumsum = y_true_sorted_cumsum[idx_scores - 1]
@@ -195,12 +180,10 @@ class ScanNetEval(object):
 
                         # compute average of precision-recall curve
                         recall_for_conv = np.copy(recall)
-                        recall_for_conv = np.append(recall_for_conv[0],
-                                                    recall_for_conv)
+                        recall_for_conv = np.append(recall_for_conv[0], recall_for_conv)
                         recall_for_conv = np.append(recall_for_conv, 0.)
 
-                        stepWidths = np.convolve(recall_for_conv,
-                                                 [-0.5, 0, 0.5], 'valid')
+                        stepWidths = np.convolve(recall_for_conv, [-0.5, 0, 0.5], 'valid')
                         # integrate is now simply a dot product
                         ap_current = np.dot(precision, stepWidths)
 
@@ -230,25 +213,19 @@ class ScanNetEval(object):
         avg_dict['classes'] = {}
         for (li, label_name) in enumerate(self.eval_class_labels):
             avg_dict['classes'][label_name] = {}
-            avg_dict['classes'][label_name]['ap'] = np.average(aps[d_inf, li,
-                                                                   oAllBut25])
-            avg_dict['classes'][label_name]['ap50%'] = np.average(aps[d_inf,
-                                                                      li, o50])
-            avg_dict['classes'][label_name]['ap25%'] = np.average(aps[d_inf,
-                                                                      li, o25])
-            avg_dict['classes'][label_name]['rc'] = np.average(rcs[d_inf, li,
-                                                                   oAllBut25])
-            avg_dict['classes'][label_name]['rc50%'] = np.average(rcs[d_inf,
-                                                                      li, o50])
-            avg_dict['classes'][label_name]['rc25%'] = np.average(rcs[d_inf,
-                                                                      li, o25])
+            avg_dict['classes'][label_name]['ap'] = np.average(aps[d_inf, li, oAllBut25])
+            avg_dict['classes'][label_name]['ap50%'] = np.average(aps[d_inf, li, o50])
+            avg_dict['classes'][label_name]['ap25%'] = np.average(aps[d_inf, li, o25])
+            avg_dict['classes'][label_name]['rc'] = np.average(rcs[d_inf, li, oAllBut25])
+            avg_dict['classes'][label_name]['rc50%'] = np.average(rcs[d_inf, li, o50])
+            avg_dict['classes'][label_name]['rc25%'] = np.average(rcs[d_inf, li, o25])
         return avg_dict
 
     def assign_instances_for_scan(self, preds, gts):
         """get gt instances, only consider the valid class labels even in class
         agnostic setting."""
-        gt_instances = get_instances(gts, self.valid_class_ids,
-                                     self.valid_class_labels, self.id2label)
+        gt_instances = get_instances(gts, self.valid_class_ids, self.valid_class_labels,
+                                     self.id2label)
         # associate
         if self.use_label:
             gt2pred = deepcopy(gt_instances)
@@ -292,8 +269,7 @@ class ScanNetEval(object):
                 continue  # skip if empty
 
             pred_instance = {}
-            pred_instance['filename'] = '{}_{}'.format(
-                pred['scan_id'], num_pred_instances)  # dummy
+            pred_instance['filename'] = '{}_{}'.format(pred['scan_id'], num_pred_instances)  # dummy
             pred_instance['pred_id'] = num_pred_instances
             pred_instance['label_id'] = label_id if self.use_label else None
             pred_instance['vert_count'] = num
@@ -314,13 +290,11 @@ class ScanNetEval(object):
                     pred_copy['intersection'] = intersection
                     iou = (
                         float(intersection) /
-                        (gt_copy['vert_count'] + pred_copy['vert_count'] -
-                         intersection))
+                        (gt_copy['vert_count'] + pred_copy['vert_count'] - intersection))
                     gt_copy['iou'] = iou
                     pred_copy['iou'] = iou
                     matched_gt.append(gt_copy)
-                    gt2pred[label_name][gt_num]['matched_pred'].append(
-                        pred_copy)
+                    gt2pred[label_name][gt_num]['matched_pred'].append(pred_copy)
             pred_instance['matched_gt'] = matched_gt
             num_pred_instances += 1
             pred2gt[label_name].append(pred_instance)
@@ -384,16 +358,12 @@ class ScanNetEval(object):
     def write_result_file(self, avgs, filename):
         _SPLITTER = ','
         with open(filename, 'w') as f:
-            f.write(
-                _SPLITTER.join(['class', 'class id', 'ap', 'ap50', 'ap25']) +
-                '\n')
+            f.write(_SPLITTER.join(['class', 'class id', 'ap', 'ap50', 'ap25']) + '\n')
             for class_name in self.eval_class_labels:
                 ap = avgs['classes'][class_name]['ap']
                 ap50 = avgs['classes'][class_name]['ap50%']
                 ap25 = avgs['classes'][class_name]['ap25%']
-                f.write(
-                    _SPLITTER.join(
-                        [str(x) for x in [class_name, ap, ap50, ap25]]) + '\n')
+                f.write(_SPLITTER.join([str(x) for x in [class_name, ap, ap50, ap25]]) + '\n')
 
     def evaluate(self, pred_list, gt_list):
         """

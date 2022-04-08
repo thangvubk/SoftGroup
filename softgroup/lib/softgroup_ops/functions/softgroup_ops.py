@@ -1,83 +1,11 @@
 import torch
 from torch.autograd import Function
 
-import SOFTGROUP_OP
-
-class HierarchicalAggregation(Function):
-    @staticmethod
-    def forward(ctx, cluster_numpoint_mean, semantic_label, coord_shift, ball_query_idxs, start_len, batch_idxs, training_mode, using_set_aggr, class_id):
-        '''
-        :param ctx:
-        :param semantic_label: (N_fg), int
-        :param coord_shift: (N_fg, 3), float
-        :param ball_query_idxs: (nActive), int
-        :param start_len: (N_fg, 2), int
-        :param batch_idxs: (N_fg), int
-
-        :return: cluster_idxs:  int (sumNPoint, 2), [:, 0] for cluster_id, [:, 1] for corresponding point idxs in N
-        :return: cluster_offsets: int (nCluster + 1)
-        '''
-        N = start_len.size(0)
-
-        assert semantic_label.is_contiguous()
-        assert coord_shift.is_contiguous()
-        assert ball_query_idxs.is_contiguous()
-        assert start_len.is_contiguous()
-        
-        fragment_idxs = semantic_label.new()
-        fragment_offsets = semantic_label.new()
-        fragment_centers = coord_shift.new() # float
-
-        cluster_idxs_kept = semantic_label.new()
-        cluster_offsets_kept = semantic_label.new()
-        cluster_centers_kept = coord_shift.new() # float
-
-        primary_idxs = semantic_label.new()
-        primary_offsets = semantic_label.new()
-        primary_centers = coord_shift.new() # float
-
-        primary_idxs_post = semantic_label.new()
-        primary_offsets_post = semantic_label.new()
-
-        training_mode_ = 1 if training_mode == 'train' else 0
-        using_set_aggr_ = int(using_set_aggr)
-
-        SOFTGROUP_OP.hierarchical_aggregation(cluster_numpoint_mean, semantic_label, coord_shift, batch_idxs, ball_query_idxs, start_len, 
-            fragment_idxs, fragment_offsets, fragment_centers,
-            cluster_idxs_kept, cluster_offsets_kept, cluster_centers_kept,
-            primary_idxs, primary_offsets, primary_centers,
-            primary_idxs_post, primary_offsets_post,
-            N, training_mode_, using_set_aggr_, class_id)
-
-        if using_set_aggr_ == 0:  # not set aggr
-            pass
-        else:
-            # cut off tails 
-            primary_idxs_post = primary_idxs_post[:primary_offsets_post[-1]]
-            primary_idxs = primary_idxs_post
-            primary_offsets = primary_offsets_post
-
-        cluster_idxs = cluster_idxs_kept
-        cluster_offsets = cluster_offsets_kept
-
-        if primary_idxs.shape[0] != 0:
-            #add primary
-            primary_idxs[:, 0] += (cluster_offsets.size(0) - 1)
-            primary_offsets += cluster_offsets[-1]
-            cluster_idxs = torch.cat((cluster_idxs, primary_idxs), dim=0).cpu()
-            cluster_offsets = torch.cat((cluster_offsets, primary_offsets[1:])).cpu()
-
-        return cluster_idxs, cluster_offsets
-
-
-    @staticmethod
-    def backward(ctx, a=None):
-        return None
-
-hierarchical_aggregation = HierarchicalAggregation.apply
+from .. import SOFTGROUP_OP
 
 
 class GetMaskIoUOnCluster(Function):
+
     @staticmethod
     def forward(ctx, proposals_idx, proposals_offset, instance_labels, instance_pointnum):
         '''
@@ -102,7 +30,8 @@ class GetMaskIoUOnCluster(Function):
         assert instance_labels.is_contiguous() and instance_labels.is_cuda
         assert instance_pointnum.is_contiguous() and instance_pointnum.is_cuda
 
-        SOFTGROUP_OP.get_mask_iou_on_cluster(proposals_idx, proposals_offset, instance_labels, instance_pointnum, proposals_iou, nInstance, nProposal)
+        SOFTGROUP_OP.get_mask_iou_on_cluster(proposals_idx, proposals_offset, instance_labels,
+                                             instance_pointnum, proposals_iou, nInstance, nProposal)
 
         return proposals_iou
 
@@ -110,12 +39,15 @@ class GetMaskIoUOnCluster(Function):
     def backward(ctx, a=None):
         return None, None, None, None
 
+
 get_mask_iou_on_cluster = GetMaskIoUOnCluster.apply
 
 
 class GetMaskIoUOnPred(Function):
+
     @staticmethod
-    def forward(ctx, proposals_idx, proposals_offset, instance_labels, instance_pointnum, mask_scores_sigmoid):
+    def forward(ctx, proposals_idx, proposals_offset, instance_labels, instance_pointnum,
+                mask_scores_sigmoid):
         '''
         :param ctx:
         :param proposals_idx: (sumNPoint), int
@@ -139,7 +71,9 @@ class GetMaskIoUOnPred(Function):
         assert instance_pointnum.is_contiguous() and instance_pointnum.is_cuda
         assert mask_scores_sigmoid.is_contiguous() and mask_scores_sigmoid.is_cuda
 
-        SOFTGROUP_OP.get_mask_iou_on_pred(proposals_idx, proposals_offset, instance_labels, instance_pointnum, proposals_iou, nInstance, nProposal, mask_scores_sigmoid)
+        SOFTGROUP_OP.get_mask_iou_on_pred(proposals_idx, proposals_offset, instance_labels,
+                                          instance_pointnum, proposals_iou, nInstance, nProposal,
+                                          mask_scores_sigmoid)
 
         return proposals_iou
 
@@ -147,11 +81,15 @@ class GetMaskIoUOnPred(Function):
     def backward(ctx, a=None):
         return None, None, None, None
 
+
 get_mask_iou_on_pred = GetMaskIoUOnPred.apply
 
+
 class GetMaskLabel(Function):
+
     @staticmethod
-    def forward(ctx, proposals_idx, proposals_offset, instance_labels, instance_cls, instance_pointnum, proposals_iou, iou_thr):
+    def forward(ctx, proposals_idx, proposals_offset, instance_labels, instance_cls,
+                instance_pointnum, proposals_iou, iou_thr):
         '''
         :param ctx:
         :param proposals_idx: (sumNPoint), int
@@ -174,7 +112,8 @@ class GetMaskLabel(Function):
         assert instance_labels.is_contiguous() and instance_labels.is_cuda
         assert instance_cls.is_contiguous() and instance_cls.is_cuda
 
-        SOFTGROUP_OP.get_mask_label(proposals_idx, proposals_offset, instance_labels, instance_cls, proposals_iou, nInstance, nProposal, iou_thr, mask_label)
+        SOFTGROUP_OP.get_mask_label(proposals_idx, proposals_offset, instance_labels, instance_cls,
+                                    proposals_iou, nInstance, nProposal, iou_thr, mask_label)
 
         return mask_label
 
@@ -182,10 +121,12 @@ class GetMaskLabel(Function):
     def backward(ctx, a=None):
         return None, None, None, None
 
+
 get_mask_label = GetMaskLabel.apply
 
 
 class Voxelization_Idx(Function):
+
     @staticmethod
     def forward(ctx, coords, batchsize, mode=4):
         '''
@@ -212,10 +153,12 @@ class Voxelization_Idx(Function):
     def backward(ctx, a=None, b=None, c=None):
         return None
 
+
 voxelization_idx = Voxelization_Idx.apply
 
 
 class Voxelization(Function):
+
     @staticmethod
     def forward(ctx, feats, map_rule, mode=4):
         '''
@@ -237,7 +180,6 @@ class Voxelization(Function):
         SOFTGROUP_OP.voxelize_fp(feats, output_feats, map_rule, mode, M, maxActive, C)
         return output_feats
 
-
     @staticmethod
     def backward(ctx, d_output_feats):
         map_rule, mode, maxActive, N = ctx.for_backwards
@@ -245,13 +187,16 @@ class Voxelization(Function):
 
         d_feats = torch.cuda.FloatTensor(N, C).zero_()
 
-        SOFTGROUP_OP.voxelize_bp(d_output_feats.contiguous(), d_feats, map_rule, mode, M, maxActive, C)
+        SOFTGROUP_OP.voxelize_bp(d_output_feats.contiguous(), d_feats, map_rule, mode, M, maxActive,
+                                 C)
         return d_feats, None, None
+
 
 voxelization = Voxelization.apply
 
 
 class PointRecover(Function):
+
     @staticmethod
     def forward(ctx, feats, map_rule, nPoint):
         '''
@@ -281,14 +226,17 @@ class PointRecover(Function):
 
         d_feats = torch.cuda.FloatTensor(M, C).zero_()
 
-        SOFTGROUP_OP.point_recover_bp(d_output_feats.contiguous(), d_feats, map_rule, M, maxActive, C)
+        SOFTGROUP_OP.point_recover_bp(d_output_feats.contiguous(), d_feats, map_rule, M, maxActive,
+                                      C)
 
         return d_feats, None, None
+
 
 point_recover = PointRecover.apply
 
 
 class BallQueryBatchP(Function):
+
     @staticmethod
     def forward(ctx, coords, batch_idxs, batch_offsets, radius, meanActive):
         '''
@@ -311,7 +259,8 @@ class BallQueryBatchP(Function):
         while True:
             idx = torch.cuda.IntTensor(n * meanActive).zero_()
             start_len = torch.cuda.IntTensor(n, 2).zero_()
-            nActive = SOFTGROUP_OP.ballquery_batch_p(coords, batch_idxs, batch_offsets, idx, start_len, n, meanActive, radius)
+            nActive = SOFTGROUP_OP.ballquery_batch_p(coords, batch_idxs, batch_offsets, idx,
+                                                     start_len, n, meanActive, radius)
             if nActive <= n * meanActive:
                 break
             meanActive = int(nActive // n + 1)
@@ -323,12 +272,14 @@ class BallQueryBatchP(Function):
     def backward(ctx, a=None, b=None):
         return None, None, None
 
+
 ballquery_batch_p = BallQueryBatchP.apply
 
 
 class BFSCluster(Function):
+
     @staticmethod
-    def forward(ctx,  cluster_numpoint_mean, ball_query_idxs, start_len, threshold, class_id):
+    def forward(ctx, cluster_numpoint_mean, ball_query_idxs, start_len, threshold, class_id):
         '''
         :param ctx:
         :param ball_query_idxs: (nActive), int
@@ -345,7 +296,8 @@ class BFSCluster(Function):
         cluster_idxs = ball_query_idxs.new()
         cluster_offsets = ball_query_idxs.new()
 
-        SOFTGROUP_OP.bfs_cluster(cluster_numpoint_mean, ball_query_idxs, start_len, cluster_idxs, cluster_offsets, N, threshold, class_id)
+        SOFTGROUP_OP.bfs_cluster(cluster_numpoint_mean, ball_query_idxs, start_len, cluster_idxs,
+                                 cluster_offsets, N, threshold, class_id)
 
         return cluster_idxs, cluster_offsets
 
@@ -353,10 +305,12 @@ class BFSCluster(Function):
     def backward(ctx, a=None):
         return None
 
+
 bfs_cluster = BFSCluster.apply
 
 
 class RoiPool(Function):
+
     @staticmethod
     def forward(ctx, feats, proposals_offset):
         '''
@@ -388,14 +342,17 @@ class RoiPool(Function):
 
         d_feats = torch.cuda.FloatTensor(sumNPoint, C).zero_()
 
-        SOFTGROUP_OP.roipool_bp(d_feats, proposals_offset, output_maxidx, d_output_feats.contiguous(), nProposal, C)
+        SOFTGROUP_OP.roipool_bp(d_feats, proposals_offset, output_maxidx,
+                                d_output_feats.contiguous(), nProposal, C)
 
         return d_feats, None
+
 
 roipool = RoiPool.apply
 
 
 class GlobalAvgPool(Function):
+
     @staticmethod
     def forward(ctx, feats, proposals_offset):
         '''
@@ -426,14 +383,17 @@ class GlobalAvgPool(Function):
 
         d_feats = torch.cuda.FloatTensor(sumNPoint, C).zero_()
 
-        SOFTGROUP_OP.global_avg_pool_bp(d_feats, proposals_offset, d_output_feats.contiguous(), nProposal, C)
+        SOFTGROUP_OP.global_avg_pool_bp(d_feats, proposals_offset, d_output_feats.contiguous(),
+                                        nProposal, C)
 
         return d_feats, None
+
 
 global_avg_pool = GlobalAvgPool.apply
 
 
 class GetIoU(Function):
+
     @staticmethod
     def forward(ctx, proposals_idx, proposals_offset, instance_labels, instance_pointnum):
         '''
@@ -454,7 +414,8 @@ class GetIoU(Function):
 
         proposals_iou = torch.cuda.FloatTensor(nProposal, nInstance).zero_()
 
-        SOFTGROUP_OP.get_iou(proposals_idx, proposals_offset, instance_labels, instance_pointnum, proposals_iou, nInstance, nProposal)
+        SOFTGROUP_OP.get_iou(proposals_idx, proposals_offset, instance_labels, instance_pointnum,
+                             proposals_iou, nInstance, nProposal)
 
         return proposals_iou
 
@@ -462,10 +423,12 @@ class GetIoU(Function):
     def backward(ctx, a=None):
         return None, None, None, None
 
+
 get_iou = GetIoU.apply
 
 
 class SecMean(Function):
+
     @staticmethod
     def forward(ctx, inp, offsets):
         '''
@@ -490,10 +453,12 @@ class SecMean(Function):
     def backward(ctx, a=None):
         return None, None
 
+
 sec_mean = SecMean.apply
 
 
 class SecMin(Function):
+
     @staticmethod
     def forward(ctx, inp, offsets):
         '''
@@ -518,10 +483,12 @@ class SecMin(Function):
     def backward(ctx, a=None):
         return None, None
 
+
 sec_min = SecMin.apply
 
 
 class SecMax(Function):
+
     @staticmethod
     def forward(ctx, inp, offsets):
         '''
@@ -545,5 +512,6 @@ class SecMax(Function):
     @staticmethod
     def backward(ctx, a=None):
         return None, None
+
 
 sec_max = SecMax.apply

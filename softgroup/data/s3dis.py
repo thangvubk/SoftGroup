@@ -3,11 +3,8 @@ import torch
 import numpy as np
 from glob import glob
 import os.path as osp
-import sys
 
-sys.path.append('../')
-
-from lib.softgroup_ops.functions import softgroup_ops  # noqa
+from ..lib.softgroup_ops import voxelization_idx
 
 
 class S3DISDataset(CustomDataset):
@@ -87,7 +84,7 @@ class S3DISDataset(CustomDataset):
         pt_offset_labels = pt_offset_label.float()
         spatial_shape = np.clip((locs.max(0)[0][1:] + 1).numpy(), self.voxel_cfg.spatial_shape[0],
                                 None)
-        voxel_locs, v2p_map, p2v_map = softgroup_ops.voxelization_idx(locs, 4)
+        voxel_locs, v2p_map, p2v_map = voxelization_idx(locs, 4)
         return {
             'scan_ids': scan_ids,
             'batch_idxs': batch_idxs,

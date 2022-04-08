@@ -46,8 +46,7 @@ def export_instance_ids_for_eval(filename, label_ids, instance_ids):
     assert label_ids.shape[0] == instance_ids.shape[0]
     output_mask_path_relative = 'pred_mask'
     name = os.path.splitext(os.path.basename(filename))[0]
-    output_mask_path = os.path.join(
-        os.path.dirname(filename), output_mask_path_relative)
+    output_mask_path = os.path.join(os.path.dirname(filename), output_mask_path_relative)
     if not os.path.isdir(output_mask_path):
         os.mkdir(output_mask_path)
     insts = np.unique(instance_ids)
@@ -82,8 +81,7 @@ class Instance(object):
             return
         self.instance_id = int(instance_id)
         self.label_id = int(self.get_label_id(instance_id))
-        self.vert_count = int(
-            self.get_instance_verts(mesh_vert_instances, instance_id))
+        self.vert_count = int(self.get_instance_verts(mesh_vert_instances, instance_id))
 
     def get_label_id(self, instance_id):
         return int(instance_id // 1000)
@@ -92,8 +90,7 @@ class Instance(object):
         return (mesh_vert_instances == instance_id).sum()
 
     def to_json(self):
-        return json.dumps(
-            self, default=lambda o: o.__dict__, sort_keys=True, indent=4)
+        return json.dumps(self, default=lambda o: o.__dict__, sort_keys=True, indent=4)
 
     def to_dict(self):
         dict = {}
@@ -134,8 +131,7 @@ def read_instance_prediction_file(filename, pred_path):
         # check that mask_file lives inside prediction path
         if os.path.commonprefix([mask_file, abs_pred_path]) != abs_pred_path:
             print(('predicted mask {} in prediction text file {}' +
-                   'points outside of prediction path.').format(
-                       mask_file, filename))
+                   'points outside of prediction path.').format(mask_file, filename))
 
         info = {}
         info['label_id'] = int(float(parts[1]))

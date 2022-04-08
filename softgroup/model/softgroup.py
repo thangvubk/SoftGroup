@@ -1,15 +1,13 @@
 import functools
 import spconv
-import sys
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from ..lib.softgroup_ops import (ballquery_batch_p, bfs_cluster, get_mask_iou_on_cluster,
+                                 get_mask_iou_on_pred, get_mask_label, global_avg_pool, sec_max,
+                                 sec_mean, sec_min, voxelization, voxelization_idx)
 from .blocks import ResidualBlock, UBlock
-
-sys.path.append('../../')
-
-from lib.softgroup_ops.functions import softgroup_ops  # noqa
 
 
 class SoftGroup(nn.Module):
@@ -119,7 +117,7 @@ class SoftGroup(nn.Module):
 
         losses = {}
         feats = torch.cat((feats, coords_float), 1)
-        voxel_feats = softgroup_ops.voxelization(feats, p2v_map)
+        voxel_feats = voxelization(feats, p2v_map)
         input = spconv.SparseConvTensor(voxel_feats, voxel_coords.int(), spatial_shape, batch_size)
         semantic_scores, pt_offsets, output_feats, coords_float = self.forward_backbone(
             input, v2p_map, coords_float)
@@ -173,8 +171,8 @@ class SoftGroup(nn.Module):
         proposals_offset = proposals_offset.cuda()
 
         # cal iou of clustered instance
-        ious_on_cluster = softgroup_ops.get_mask_iou_on_cluster(proposals_idx, proposals_offset,
-                                                                instance_labels, instance_pointnum)
+        ious_on_cluster = get_mask_iou_on_cluster(proposals_idx, proposals_offset, instance_labels,
+                                                  instance_pointnum)
 
         # filter out background instances
         fg_inds = (instance_cls != self.ignore_label)
@@ -197,9 +195,8 @@ class SoftGroup(nn.Module):
         slice_inds = torch.arange(
             0, mask_cls_label.size(0), dtype=torch.long, device=mask_cls_label.device)
         mask_scores_sigmoid_slice = mask_scores.sigmoid()[slice_inds, mask_cls_label]
-        mask_label = softgroup_ops.get_mask_label(proposals_idx, proposals_offset, instance_labels,
-                                                  instance_cls, instance_pointnum, ious_on_cluster,
-                                                  self.train_cfg.pos_iou_thr)
+        mask_label = get_mask_label(proposals_idx, proposals_offset, instance_labels, instance_cls,
+                                    instance_pointnum, ious_on_cluster, self.train_cfg.pos_iou_thr)
         mask_label_weight = (mask_label != -1).float()
         mask_label[mask_label == -1.] = 0.5  # any value is ok
         mask_loss = F.binary_cross_entropy(
@@ -208,9 +205,8 @@ class SoftGroup(nn.Module):
         losses['mask_loss'] = (mask_loss, mask_label_weight.sum())
 
         # compute iou score loss
-        ious = softgroup_ops.get_mask_iou_on_pred(proposals_idx, proposals_offset, instance_labels,
-                                                  instance_pointnum,
-                                                  mask_scores_sigmoid_slice.detach())
+        ious = get_mask_iou_on_pred(proposals_idx, proposals_offset, instance_labels,
+                                    instance_pointnum, mask_scores_sigmoid_slice.detach())
         fg_ious = ious[:, fg_inds]
         gt_ious, _ = fg_ious.max(1)
         slice_inds = torch.arange(0, labels.size(0), dtype=torch.long, device=labels.device)
@@ -234,7 +230,7 @@ class SoftGroup(nn.Module):
         batch_size = batch['batch_size']
 
         feats = torch.cat((feats, coords_float), 1)
-        voxel_feats = softgroup_ops.voxelization(feats, p2v_map)
+        voxel_feats = voxelization(feats, p2v_map)
         input = spconv.SparseConvTensor(voxel_feats, voxel_coords.int(), spatial_shape, batch_size)
         semantic_scores, pt_offsets, output_feats, coords_float = self.forward_backbone(
             input, v2p_map, coords_float, x4_split=self.test_cfg.x4_split)
@@ -324,10 +320,10 @@ class SoftGroup(nn.Module):
             batch_offsets_ = self.get_batch_offsets(batch_idxs_, batch_size)
             coords_ = coords_float[object_idxs]
             pt_offsets_ = pt_offsets[object_idxs]
-            idx, start_len = softgroup_ops.ballquery_batch_p(coords_ + pt_offsets_, batch_idxs_,
-                                                             batch_offsets_, radius, mean_active)
-            proposals_idx, proposals_offset = softgroup_ops.bfs_cluster(
-                class_numpoint_mean, idx.cpu(), start_len.cpu(), npoint_thr, class_id)
+            idx, start_len = ballquery_batch_p(coords_ + pt_offsets_, batch_idxs_, batch_offsets_,
+                                               radius, mean_active)
+            proposals_idx, proposals_offset = bfs_cluster(class_numpoint_mean, idx.cpu(),
+                                                          start_len.cpu(), npoint_thr, class_id)
             proposals_idx[:, 1] = object_idxs[proposals_idx[:, 1].long()].int()
 
             # merge proposals
@@ -433,13 +429,13 @@ class SoftGroup(nn.Module):
         clusters_feats = feats[c_idxs.long()]
         clusters_coords = coords[c_idxs.long()]
 
-        clusters_coords_mean = softgroup_ops.sec_mean(clusters_coords, clusters_offset.cuda())
+        clusters_coords_mean = sec_mean(clusters_coords, clusters_offset.cuda())
         clusters_coords_mean = torch.index_select(clusters_coords_mean, 0,
                                                   clusters_idx[:, 0].cuda().long())
         clusters_coords -= clusters_coords_mean
 
-        clusters_coords_min = softgroup_ops.sec_min(clusters_coords, clusters_offset.cuda())
-        clusters_coords_max = softgroup_ops.sec_max(clusters_coords, clusters_offset.cuda())
+        clusters_coords_min = sec_min(clusters_coords, clusters_offset.cuda())
+        clusters_coords_max = sec_max(clusters_coords, clusters_offset.cuda())
 
         clusters_scale = 1 / (
             (clusters_coords_max - clusters_coords_min) / spatial_shape).max(1)[0] - 0.01
@@ -465,9 +461,9 @@ class SoftGroup(nn.Module):
         clusters_coords = torch.cat([clusters_idx[:, 0].view(-1, 1).long(),
                                      clusters_coords.cpu()], 1)
 
-        out_coords, inp_map, out_map = softgroup_ops.voxelization_idx(clusters_coords,
-                                                                      int(clusters_idx[-1, 0]) + 1)
-        out_feats = softgroup_ops.voxelization(clusters_feats, out_map.cuda())
+        out_coords, inp_map, out_map = voxelization_idx(clusters_coords,
+                                                        int(clusters_idx[-1, 0]) + 1)
+        out_feats = voxelization(clusters_feats, out_map.cuda())
         spatial_shape = [spatial_shape] * 3
         voxelization_feats = spconv.SparseConvTensor(out_feats,
                                                      out_coords.int().cuda(), spatial_shape,
@@ -487,7 +483,7 @@ class SoftGroup(nn.Module):
         batch_offset = torch.cumsum(batch_counts, dim=0)
         pad = batch_offset.new_full((1, ), 0)
         batch_offset = torch.cat([pad, batch_offset]).int()
-        x_pool = softgroup_ops.global_avg_pool(x.features, batch_offset)
+        x_pool = global_avg_pool(x.features, batch_offset)
         if not expand:
             return x_pool
 

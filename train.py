@@ -9,12 +9,13 @@ import sys
 import time
 import torch
 import yaml
+from data import build_dataloader, build_dataset
+from model.softgroup import SoftGroup
 from munch import Munch
 from tensorboardX import SummaryWriter
 
-from data import build_dataloader, build_dataset
-from model.softgroup import SoftGroup
-from util import build_optimizer, get_max_memory, get_root_logger, utils
+from softgroup.util import (AverageMeter, build_optimizer, checkpoint_save, cosine_lr_after_step,
+                            get_max_memory, get_root_logger, load_checkpoint)
 
 
 def eval_epoch(val_loader, model, model_fn, epoch):
@@ -32,7 +33,7 @@ def eval_epoch(val_loader, model, model_fn, epoch):
 
             for k, v in meter_dict.items():
                 if k not in am_dict.keys():
-                    am_dict[k] = utils.AverageMeter()
+                    am_dict[k] = AverageMeter()
                 am_dict[k].update(v[0], v[1])
             sys.stdout.write("\riter: {}/{} loss: {:.4f}({:.4f})".format(
                 i + 1, len(val_loader), am_dict['loss'].val, am_dict['loss'].avg))
@@ -97,31 +98,30 @@ if __name__ == '__main__':
     start_epoch = 1
     if args.resume:
         logger.info(f'Resume from {args.resume}')
-        start_epoch = utils.load_checkpoint(args.resume, logger, model, optimizer=optimizer)
+        start_epoch = load_checkpoint(args.resume, logger, model, optimizer=optimizer)
     elif cfg.pretrain:
         logger.info(f'Load pretrain from {cfg.pretrain}')
-        utils.load_checkpoint(cfg.pretrain, logger, model)
+        load_checkpoint(cfg.pretrain, logger, model)
 
     # train and val
     logger.info('Training')
     for epoch in range(start_epoch, cfg.epochs + 1):
         model.train()
-        iter_time = utils.AverageMeter()
-        data_time = utils.AverageMeter()
+        iter_time = AverageMeter()
+        data_time = AverageMeter()
         meter_dict = {}
         end = time.time()
 
         for i, batch in enumerate(train_loader, start=1):
             data_time.update(time.time() - end)
 
-            utils.cosine_lr_after_step(optimizer, cfg.optimizer.lr, epoch - 1, cfg.step_epoch,
-                                       cfg.epochs)
+            cosine_lr_after_step(optimizer, cfg.optimizer.lr, epoch - 1, cfg.step_epoch, cfg.epochs)
             loss, log_vars = model(batch, return_loss=True)
 
             # meter_dict
             for k, v in log_vars.items():
                 if k not in meter_dict.keys():
-                    meter_dict[k] = utils.AverageMeter()
+                    meter_dict[k] = AverageMeter()
                 meter_dict[k].update(v[0], v[1])
 
             # backward
@@ -148,4 +148,4 @@ if __name__ == '__main__':
                 for k, v in meter_dict.items():
                     log_str += f', {k}: {v.val:.4f}'
                 logger.info(log_str)
-        utils.checkpoint_save(epoch, model, optimizer, cfg.work_dir, cfg.save_freq)
+        checkpoint_save(epoch, model, optimizer, cfg.work_dir, cfg.save_freq)

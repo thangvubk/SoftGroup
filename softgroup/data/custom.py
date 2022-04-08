@@ -3,14 +3,11 @@ import numpy as np
 import os.path as osp
 import scipy.interpolate
 import scipy.ndimage
-import sys
 import torch
 from glob import glob
 from torch.utils.data import Dataset
 
-sys.path.append('../')
-
-from lib.softgroup_ops.functions import softgroup_ops  # noqa
+from ..lib.softgroup_ops import voxelization_idx
 
 
 class CustomDataset(Dataset):
@@ -223,7 +220,7 @@ class CustomDataset(Dataset):
 
         spatial_shape = np.clip(
             locs.max(0)[0][1:].numpy() + 1, self.voxel_cfg.spatial_shape[0], None)
-        voxel_locs, v2p_map, p2v_map = softgroup_ops.voxelization_idx(locs, 1)
+        voxel_locs, v2p_map, p2v_map = voxelization_idx(locs, 1)
         return {
             'scan_ids': scan_ids,
             'locs': locs,
