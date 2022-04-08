@@ -10,9 +10,9 @@ import time
 import numpy as np
 import torch
 import yaml
-from data import build_dataloader, build_dataset
-from model.softgroup import SoftGroup
 from munch import Munch
+from softgroup.data import build_dataloader, build_dataset
+from softgroup.model import SoftGroup
 from softgroup.util import (AverageMeter, build_optimizer, checkpoint_save, cosine_lr_after_step,
                             get_max_memory, get_root_logger, load_checkpoint)
 from tensorboardX import SummaryWriter
