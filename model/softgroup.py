@@ -5,7 +5,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from util import utils
 from .blocks import ResidualBlock, UBlock
 
 sys.path.append('../../')
@@ -73,10 +72,11 @@ class SoftGroup(nn.Module):
             self.cls_linear = nn.Linear(channels, instance_classes + 1)
             self.mask_linear = nn.Sequential(
                 nn.Linear(channels, channels), nn.ReLU(), nn.Linear(channels, instance_classes + 1))
-            self.iou_score_linear = nn.Linear(channels, instance_classes + 1)
+            # TODO renamve score_linear to iou_score_linear
+            self.score_linear = nn.Linear(channels, instance_classes + 1)
 
-            nn.init.normal_(self.iou_score_linear.weight, 0, 0.01)
-            nn.init.constant_(self.iou_score_linear.bias, 0)
+            nn.init.normal_(self.score_linear.weight, 0, 0.01)
+            nn.init.constant_(self.score_linear.bias, 0)
 
         self.apply(self.set_bn_init)
 
@@ -321,7 +321,7 @@ class SoftGroup(nn.Module):
             if object_idxs.size(0) < self.test_cfg.min_npoint:
                 continue
             batch_idxs_ = batch_idxs[object_idxs]
-            batch_offsets_ = utils.get_batch_offsets(batch_idxs_, batch_size)
+            batch_offsets_ = self.get_batch_offsets(batch_idxs_, batch_size)
             coords_ = coords_float[object_idxs]
             pt_offsets_ = pt_offsets[object_idxs]
             idx, start_len = softgroup_ops.ballquery_batch_p(coords_ + pt_offsets_, batch_idxs_,
@@ -358,7 +358,7 @@ class SoftGroup(nn.Module):
         # predict instance cls and iou scores
         feats = self.global_pool(feats)
         cls_scores = self.cls_linear(feats)
-        iou_scores = self.iou_score_linear(feats)
+        iou_scores = self.score_linear(feats)
 
         return instance_batch_idxs, cls_scores, iou_scores, mask_scores
 
@@ -473,6 +473,13 @@ class SoftGroup(nn.Module):
                                                      out_coords.int().cuda(), spatial_shape,
                                                      int(clusters_idx[-1, 0]) + 1)
         return voxelization_feats, inp_map
+
+    def get_batch_offsets(self, batch_idxs, bs):
+        batch_offsets = torch.zeros(bs + 1).int().cuda()
+        for i in range(bs):
+            batch_offsets[i + 1] = batch_offsets[i] + (batch_idxs == i).sum()
+        assert batch_offsets[-1] == batch_idxs.shape[0]
+        return batch_offsets
 
     def global_pool(self, x, expand=False):
         indices = x.indices[:, 0]
