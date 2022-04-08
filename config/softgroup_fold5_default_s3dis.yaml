@@ -51,9 +51,14 @@ data:
       spatial_shape: [128, 512]
       max_npoint: 250000
       min_npoint: 5000
-  dataloader:
+
+dataloader:
+  train:
     batch_size: 4
     num_workers: 4
+  test:
+    batch_size: 1
+    num_workers: 1
 
 optimizer:
   type: 'Adam'

@@ -87,8 +87,8 @@ if __name__ == '__main__':
     # data
     train_set = build_dataset(cfg.data.train, logger)
     val_set = build_dataset(cfg.data.test, logger)
-    train_loader = build_dataloader(train_set, training=True, **cfg.data.dataloader)
-    val_loader = build_dataloader(val_set, training=False)
+    train_loader = build_dataloader(train_set, training=True, **cfg.dataloader.train)
+    val_loader = build_dataloader(val_set, training=False, **cfg.dataloader.test)
 
     # optim
     optimizer = build_optimizer(model, cfg.optimizer)

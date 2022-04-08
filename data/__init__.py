@@ -29,11 +29,11 @@ def build_dataloader(dataset, batch_size=1, num_workers=1, training=True):
             drop_last=True,
             pin_memory=True)
     else:
-        assert batch_size == 1 and num_workers == 1
+        assert batch_size == 1
         return DataLoader(
             dataset,
-            batch_size=1,
-            num_workers=1,
+            batch_size=batch_size,
+            num_workers=num_workers,
             collate_fn=dataset.collate_fn,
             shuffle=False,
             drop_last=False,

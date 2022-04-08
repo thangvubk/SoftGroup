@@ -82,7 +82,7 @@ if __name__ == '__main__':
     model.cuda()
 
     dataset = build_dataset(cfg.data.test, logger)
-    dataloader = build_dataloader(dataset, training=False)
+    dataloader = build_dataloader(dataset, training=False, **cfg.dataloader.test)
     all_preds, all_gts = [], []
     with torch.no_grad():
         model = model.eval()
