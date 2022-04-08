@@ -17,6 +17,7 @@ def build_dataset(data_cfg, logger):
     else:
         raise ValueError(f'Unknown {data_type}')
 
+
 def build_dataloader(dataset, batch_size=1, num_workers=1, training=True):
     if training:
         return DataLoader(

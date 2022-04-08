@@ -409,7 +409,7 @@ class ScanNetEval(object):
         """
         print('evaluating', len(pred_list), 'scans...')
         matches = {}
-        for i, (preds, gts) in enumerate(tqdm(zip(pred_list, gt_list))):
+        for i, (preds, gts) in enumerate(tqdm(zip(pred_list, gt_list), total=len(pred_list))):
             gt2pred, pred2gt = self.assign_instances_for_scan(preds, gts)
             # assign gt to predictions
             matches_key = f'gt_{i}'

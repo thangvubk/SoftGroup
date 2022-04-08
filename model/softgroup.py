@@ -103,7 +103,7 @@ class SoftGroup(nn.Module):
             return self.forward_test(batch)
 
     def forward_train(self, batch):
-        coords = batch['locs'].cuda()
+        batch_idxs = batch['batch_idxs'].cuda()
         voxel_coords = batch['voxel_locs'].cuda()
         p2v_map = batch['p2v_map'].cuda()
         v2p_map = batch['v2p_map'].cuda()
@@ -111,26 +111,24 @@ class SoftGroup(nn.Module):
         feats = batch['feats'].cuda()
         semantic_labels = batch['labels'].cuda()
         instance_labels = batch['instance_labels'].cuda()
-        instance_info = batch['instance_info'].cuda()
         # instance_pointnum = batch['instance_pointnum'].cuda()
         # instance_cls = batch['instance_cls'].cuda()
         # batch_offsets = batch['offsets'].cuda()
+        pt_offset_labels = batch['pt_offset_labels'].cuda()
         spatial_shape = batch['spatial_shape']
         batch_size = batch['batch_size']
 
-        feats = torch.cat((feats, coords_float), 1)
-        voxel_feats = softgroup_ops.voxelization(feats, v2p_map)
-
         losses = {}
-        pt_offset_labels = instance_info[:, :3] - coords_float
+        feats = torch.cat((feats, coords_float), 1)
+        voxel_feats = softgroup_ops.voxelization(feats, p2v_map)
         input = spconv.SparseConvTensor(voxel_feats, voxel_coords.int(), spatial_shape, batch_size)
         semantic_scores, pt_offsets, output_feats, coords_float = self.forward_backbone(
-            input, p2v_map, coords_float)  # TODO check name for map
+            input, v2p_map, coords_float)
         point_wise_loss = self.point_wise_loss(semantic_scores, pt_offsets, semantic_labels,
                                                instance_labels, pt_offset_labels)
         losses.update(point_wise_loss)
         loss = sum(v[0] for v in losses.values())
-        losses['loss'] = (loss, coords.size(0))
+        losses['loss'] = (loss, batch_idxs.size(0))
         return loss, losses
 
     def point_wise_loss(self, semantic_scores, pt_offsets, semantic_labels, instance_labels,
@@ -141,7 +139,7 @@ class SoftGroup(nn.Module):
 
         pos_inds = instance_labels != self.ignore_label
         if pos_inds.sum() == 0:
-            offset_loss = 0 * pt_offset.sum()
+            offset_loss = 0 * pt_offsets.sum()
         else:
             offset_loss = self.offset_loss(pt_offsets[pos_inds],
                                            pt_offset_labels[pos_inds]) / pos_inds.sum()
@@ -149,7 +147,7 @@ class SoftGroup(nn.Module):
         return losses
 
     def forward_test(self, batch):
-        coords = batch['locs'].cuda()
+        batch_idxs = batch['batch_idxs'].cuda()
         voxel_coords = batch['voxel_locs'].cuda()
         p2v_map = batch['p2v_map'].cuda()
         v2p_map = batch['v2p_map'].cuda()
@@ -157,23 +155,17 @@ class SoftGroup(nn.Module):
         feats = batch['feats'].cuda()
         labels = batch['labels'].cuda()
         instance_labels = batch['instance_labels'].cuda()
-        # instance_info = batch['instance_info'].cuda()
         # instance_pointnum = batch['instance_pointnum'].cuda()
         # instance_cls = batch['instance_cls'].cuda()
         # batch_offsets = batch['offsets'].cuda()
         spatial_shape = batch['spatial_shape']
+        batch_size = batch['batch_size']
 
         feats = torch.cat((feats, coords_float), 1)
-        voxel_feats = softgroup_ops.voxelization(feats, v2p_map)
-        if self.test_cfg.x4_split:
-            input = spconv.SparseConvTensor(voxel_feats, voxel_coords.int(), spatial_shape, 4)
-            batch_idxs = torch.zeros_like(coords[:, 0].int())
-        else:
-            input = spconv.SparseConvTensor(voxel_feats, voxel_coords.int(), spatial_shape, 1)
-            batch_idxs = coords[:, 0].int()
+        voxel_feats = softgroup_ops.voxelization(feats, p2v_map)
+        input = spconv.SparseConvTensor(voxel_feats, voxel_coords.int(), spatial_shape, batch_size)
         semantic_scores, pt_offsets, output_feats, coords_float = self.forward_backbone(
-            input, p2v_map, coords_float,
-            x4_split=self.test_cfg.x4_split)  # TODO check name for map
+            input, v2p_map, coords_float, x4_split=self.test_cfg.x4_split)
         proposals_idx, proposals_offset = self.forward_grouping(semantic_scores, pt_offsets,
                                                                 batch_idxs, coords_float,
                                                                 self.grouping_cfg)

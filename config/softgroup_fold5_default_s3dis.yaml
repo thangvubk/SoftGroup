@@ -29,6 +29,7 @@ data:
     prefix: ['Area_1', 'Area_2', 'Area_3', 'Area_4', 'Area_6']
     suffix: '_inst_nostuff.pth'
     repeat: 5
+    training: True
     voxel_cfg:
       scale: 50
       spatial_shape: [128, 512]
@@ -39,6 +40,7 @@ data:
     data_root: 'dataset/s3dis/preprocess'
     prefix: 'Area_5'
     suffix: '_inst_nostuff.pth'
+    training: False
     voxel_cfg:
       scale: 50
       spatial_shape: [128, 512]

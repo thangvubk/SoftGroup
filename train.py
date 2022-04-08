@@ -103,6 +103,7 @@ if __name__ == '__main__':
         utils.load_checkpoint(cfg.pretrain, logger, model)
 
     # train and val
+    logger.info('Training')
     for epoch in range(start_epoch, cfg.epochs + 1):
         model.train()
         iter_time = utils.AverageMeter()

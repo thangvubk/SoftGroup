@@ -12,6 +12,8 @@ from model.softgroup import SoftGroup
 
 from data.scannetv2 import ScanNetDataset
 from torch.utils.data import DataLoader
+from util import get_root_logger
+from data import build_dataset, build_dataloader
 
 
 def get_args():
@@ -62,6 +64,7 @@ def evaluate_semantic_segmantation_miou(matches):
 
 
 if __name__ == '__main__':
+    torch.backends.cudnn.enabled = False  # TODO remove this
     test_seed = 567
     random.seed(test_seed)
     np.random.seed(test_seed)
@@ -69,24 +72,17 @@ if __name__ == '__main__':
     torch.cuda.manual_seed_all(test_seed)
 
     args = get_args()
-    cfg = Munch.fromDict(yaml.safe_load(open(args.config, 'r')))
-    torch.backends.cudnn.enabled = False
+    cfg_txt = open(args.config, 'r').read()
+    cfg = Munch.fromDict(yaml.safe_load(cfg_txt))
+    logger = get_root_logger()
 
     model = SoftGroup(**cfg.model)
-    print(f'Load state dict from {args.checkpoint}')
-    model = utils.load_checkpoint(model, args.checkpoint)
+    logger.info(f'Load state dict from {args.checkpoint}')
+    utils.load_checkpoint(args.checkpoint, logger, model)
     model.cuda()
 
-
-    dataset = ScanNetDataset(training=False, **cfg.data.test)
-    dataloader = DataLoader(
-        dataset,
-        batch_size=1,
-        collate_fn=dataset.collate_fn,
-        num_workers=16,
-        shuffle=False,
-        drop_last=False,
-        pin_memory=True)
+    dataset = build_dataset(cfg.data.test, logger)
+    dataloader = build_dataloader(dataset, training=False)
     all_preds, all_gts = [], []
     with torch.no_grad():
         model = model.eval()
