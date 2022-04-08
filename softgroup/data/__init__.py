@@ -1,6 +1,7 @@
+from torch.utils.data import DataLoader
+
 from .s3dis import S3DISDataset
 from .scannetv2 import ScanNetDataset
-from torch.utils.data import DataLoader
 
 __all__ = ['S3DISDataset', 'ScanNetDataset', 'build_dataset']
 

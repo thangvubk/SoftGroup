@@ -1,8 +1,9 @@
+from collections import OrderedDict
+
 import spconv
+import torch
 from spconv.modules import SparseModule
 from torch import nn
-from collections import OrderedDict
-import torch
 
 
 class ResidualBlock(SparseModule):

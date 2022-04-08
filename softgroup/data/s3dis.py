@@ -1,16 +1,17 @@
-from .custom import CustomDataset
-import torch
-import numpy as np
-from glob import glob
 import os.path as osp
+from glob import glob
+
+import numpy as np
+import torch
 
 from ..lib.softgroup_ops import voxelization_idx
+from .custom import CustomDataset
 
 
 class S3DISDataset(CustomDataset):
 
-    CLASSES = ("ceiling", "floor", "wall", "beam", "column", "window", "door", "chair", "table",
-               "bookcase", "sofa", "board", "clutter")
+    CLASSES = ('ceiling', 'floor', 'wall', 'beam', 'column', 'window', 'door', 'chair', 'table',
+               'bookcase', 'sofa', 'board', 'clutter')
 
     def get_filenames(self):
         if isinstance(self.prefix, str):
