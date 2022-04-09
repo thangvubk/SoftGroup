@@ -1,4 +1,5 @@
 from torch.utils.data import DataLoader
+from torch.utils.data.distributed import DistributedSampler
 
 from .s3dis import S3DISDataset
 from .scannetv2 import ScanNetDataset
@@ -19,14 +20,19 @@ def build_dataset(data_cfg, logger):
         raise ValueError(f'Unknown {data_type}')
 
 
-def build_dataloader(dataset, batch_size=1, num_workers=1, training=True):
+def build_dataloader(dataset, batch_size=1, num_workers=1, training=True, dist=False):
+    shuffle = training
+    sampler = DistributedSampler(dataset, shuffle=shuffle) if dist else None
+    if sampler is not None:
+        shuffle = False
     if training:
         return DataLoader(
             dataset,
             batch_size=batch_size,
             num_workers=num_workers,
             collate_fn=dataset.collate_fn,
-            shuffle=True,
+            shuffle=shuffle,
+            sampler=sampler,
             drop_last=True,
             pin_memory=True)
     else:

@@ -5,6 +5,8 @@ from math import cos, pi
 
 import torch
 
+from .dist import master_only
+
 
 class AverageMeter(object):
     """Computes and stores the average and current value."""
@@ -59,6 +61,7 @@ def weights_to_cpu(state_dict):
     return state_dict_cpu
 
 
+@master_only
 def checkpoint_save(epoch, model, optimizer, work_dir, save_freq=16):
     f = os.path.join(work_dir, f'epoch_{epoch}.pth')
     checkpoint = {

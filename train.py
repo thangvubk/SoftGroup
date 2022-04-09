@@ -12,15 +12,17 @@ from softgroup.data import build_dataloader, build_dataset
 from softgroup.evaluation import ScanNetEval, evaluate_semantic_acc, evaluate_semantic_miou
 from softgroup.model import SoftGroup
 from softgroup.util import (AverageMeter, build_optimizer, checkpoint_save, cosine_lr_after_step,
-                            get_max_memory, get_root_logger, is_multiple, is_power2,
+                            get_max_memory, get_root_logger, init_dist, is_multiple, is_power2,
                             load_checkpoint)
 from tensorboardX import SummaryWriter
+from torch.nn.parallel import DistributedDataParallel
 from tqdm import tqdm
 
 
 def get_args():
     parser = argparse.ArgumentParser('SoftGroup')
     parser.add_argument('config', type=str, help='path to config file')
+    parser.add_argument('--dist', action='store_true', help='run with distributed parallel')
     parser.add_argument('--resume', type=str, help='path to resume from')
     parser.add_argument('--work_dir', type=str, help='working directory')
     args = parser.parse_args()
@@ -32,6 +34,9 @@ if __name__ == '__main__':
     cfg_txt = open(args.config, 'r').read()
     cfg = Munch.fromDict(yaml.safe_load(cfg_txt))
 
+    if args.dist:
+        init_dist()
+
     # work_dir & logger
     if args.work_dir is not None:
         cfg.work_dir = args.work_dir
@@ -42,16 +47,20 @@ if __name__ == '__main__':
     log_file = osp.join(cfg.work_dir, f'{timestamp}.log')
     logger = get_root_logger(log_file=log_file)
     logger.info(f'Config:\n{cfg_txt}')
+    logger.info(f'Distributed: {args.dist}')
     shutil.copy(args.config, osp.join(cfg.work_dir, osp.basename(args.config)))
     writer = SummaryWriter(cfg.work_dir)
 
     # model
     model = SoftGroup(**cfg.model).cuda()
+    if args.dist:
+        model = DistributedDataParallel(model, device_ids=[torch.cuda.current_device()])
 
     # data
     train_set = build_dataset(cfg.data.train, logger)
     val_set = build_dataset(cfg.data.test, logger)
-    train_loader = build_dataloader(train_set, training=True, **cfg.dataloader.train)
+    train_loader = build_dataloader(
+        train_set, training=True, dist=args.dist, **cfg.dataloader.train)
     val_loader = build_dataloader(val_set, training=False, **cfg.dataloader.test)
 
     # optim
@@ -74,6 +83,9 @@ if __name__ == '__main__':
         data_time = AverageMeter()
         meter_dict = {}
         end = time.time()
+
+        if train_loader.sampler is not None and args.dist:
+            train_loader.sampler.set_epoch(epoch)
 
         for i, batch in enumerate(train_loader, start=1):
             data_time.update(time.time() - end)
