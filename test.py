@@ -6,7 +6,7 @@ import torch
 import yaml
 from munch import Munch
 from softgroup.data import build_dataloader, build_dataset
-from softgroup.evaluation import ScanNetEval
+from softgroup.evaluation import ScanNetEval, evaluate_semantic_acc, evaluate_semantic_miou
 from softgroup.model import SoftGroup
 from softgroup.util import get_root_logger, load_checkpoint
 from tqdm import tqdm
@@ -18,45 +18,6 @@ def get_args():
     parser.add_argument('checkpoint', type=str, help='path to checkpoint')
     args = parser.parse_args()
     return args
-
-
-def evaluate_semantic_segmantation_accuracy(matches):
-    seg_gt_list = []
-    seg_pred_list = []
-    for k, v in matches.items():
-        seg_gt_list.append(v['seg_gt'])
-        seg_pred_list.append(v['seg_pred'])
-    seg_gt_all = torch.cat(seg_gt_list, dim=0).cuda()
-    seg_pred_all = torch.cat(seg_pred_list, dim=0).cuda()
-    assert seg_gt_all.shape == seg_pred_all.shape
-    correct = (seg_gt_all[seg_gt_all != -100] == seg_pred_all[seg_gt_all != -100]).sum()
-    whole = (seg_gt_all != -100).sum()
-    seg_accuracy = correct.float() / whole.float()
-    return seg_accuracy
-
-
-def evaluate_semantic_segmantation_miou(matches):
-    seg_gt_list = []
-    seg_pred_list = []
-    for k, v in matches.items():
-        seg_gt_list.append(v['seg_gt'])
-        seg_pred_list.append(v['seg_pred'])
-    seg_gt_all = torch.cat(seg_gt_list, dim=0).cuda()
-    seg_pred_all = torch.cat(seg_pred_list, dim=0).cuda()
-    pos_inds = seg_gt_all != -100
-    seg_gt_all = seg_gt_all[pos_inds]
-    seg_pred_all = seg_pred_all[pos_inds]
-    assert seg_gt_all.shape == seg_pred_all.shape
-    iou_list = []
-    for _index in seg_gt_all.unique():
-        if _index != -100:
-            intersection = ((seg_gt_all == _index) & (seg_pred_all == _index)).sum()
-            union = ((seg_gt_all == _index) | (seg_pred_all == _index)).sum()
-            iou = intersection.float() / union
-            iou_list.append(iou)
-    iou_tensor = torch.tensor(iou_list)
-    miou = iou_tensor.mean()
-    return miou
 
 
 if __name__ == '__main__':
@@ -79,12 +40,20 @@ if __name__ == '__main__':
 
     dataset = build_dataset(cfg.data.test, logger)
     dataloader = build_dataloader(dataset, training=False, **cfg.dataloader.test)
-    all_preds, all_gts = [], []
+    all_sem_preds, all_sem_labels, all_pred_insts, all_gt_insts = [], [], [], []
     with torch.no_grad():
         model = model.eval()
         for i, batch in tqdm(enumerate(dataloader), total=len(dataloader)):
             ret = model(batch)
-            all_preds.append(ret['det_ins'])
-            all_gts.append(ret['gt_ins'])
-        scannet_eval = ScanNetEval(dataset.CLASSES)
-        scannet_eval.evaluate(all_preds, all_gts)
+            all_sem_preds.append(ret['semantic_preds'])
+            all_sem_labels.append(ret['semantic_labels'])
+            if not cfg.model.semantic_only:
+                all_pred_insts.append(ret['pred_instances'])
+                all_gt_insts.append(ret['gt_instances'])
+        if not cfg.model.semantic_only:
+            logger.info('Evaluate instance segmentation')
+            scannet_eval = ScanNetEval(dataset.CLASSES)
+            scannet_eval.evaluate(all_pred_insts, all_gt_insts)
+        logger.info('Evaluate semantic segmentation')
+        evaluate_semantic_miou(all_sem_preds, all_sem_labels, cfg.model.ignore_label, logger)
+        evaluate_semantic_acc(all_sem_preds, all_sem_labels, cfg.model.ignore_label, logger)

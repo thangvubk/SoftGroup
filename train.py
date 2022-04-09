@@ -12,10 +12,13 @@ import torch
 import yaml
 from munch import Munch
 from softgroup.data import build_dataloader, build_dataset
+from softgroup.evaluation import ScanNetEval, evaluate_semantic_acc, evaluate_semantic_miou
 from softgroup.model import SoftGroup
 from softgroup.util import (AverageMeter, build_optimizer, checkpoint_save, cosine_lr_after_step,
-                            get_max_memory, get_root_logger, load_checkpoint)
+                            get_max_memory, get_root_logger, is_multiple, is_power2,
+                            load_checkpoint)
 from tensorboardX import SummaryWriter
+from tqdm import tqdm
 
 
 def eval_epoch(val_loader, model, model_fn, epoch):
@@ -149,3 +152,29 @@ if __name__ == '__main__':
                     log_str += f', {k}: {v.val:.4f}'
                 logger.info(log_str)
         checkpoint_save(epoch, model, optimizer, cfg.work_dir, cfg.save_freq)
+
+        # validation
+        if not (is_multiple(epoch, cfg.save_freq) or is_power2(epoch)):
+            continue
+        all_sem_preds, all_sem_labels, all_pred_insts, all_gt_insts = [], [], [], []
+        logger.info('Validation')
+        with torch.no_grad():
+            model = model.eval()
+            for batch in tqdm(val_loader, total=len(val_loader)):
+                ret = model(batch)
+                all_sem_preds.append(ret['semantic_preds'])
+                all_sem_labels.append(ret['semantic_labels'])
+                if not cfg.model.semantic_only:
+                    all_pred_insts.append(ret['pred_instances'])
+                    all_gt_insts.append(ret['gt_instances'])
+            if not cfg.model.semantic_only:
+                logger.info('Evaluate instance segmentation')
+                scannet_eval = ScanNetEval(val_loader.dataset.CLASSES)
+                scannet_eval.evaluate(all_pred_insts, all_gt_insts)
+            logger.info('Evaluate semantic segmentation')
+            miou = evaluate_semantic_miou(all_sem_preds, all_sem_labels, cfg.model.ignore_label,
+                                          logger)
+            acc = evaluate_semantic_acc(all_sem_preds, all_sem_labels, cfg.model.ignore_label,
+                                        logger)
+            writer.add_scalar('mIoU', miou, epoch)
+            writer.add_scalar('Acc', acc, epoch)

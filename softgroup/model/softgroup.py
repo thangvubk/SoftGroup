@@ -8,7 +8,7 @@ import torch.nn.functional as F
 from ..lib.softgroup_ops import (ballquery_batch_p, bfs_cluster, get_mask_iou_on_cluster,
                                  get_mask_iou_on_pred, get_mask_label, global_avg_pool, sec_max,
                                  sec_mean, sec_min, voxelization, voxelization_idx)
-from .blocks import ResidualBlock, UBlock
+from .blocks import MLP, ResidualBlock, UBlock
 
 
 class SoftGroup(nn.Module):
@@ -50,34 +50,19 @@ class SoftGroup(nn.Module):
         self.unet = UBlock(block_channels, norm_fn, 2, block, indice_key_id=1)
         self.output_layer = spconv.SparseSequential(norm_fn(channels), nn.ReLU())
 
-        # semantic segmentation branch
-        self.semantic_linear = nn.Sequential(
-            nn.Linear(channels, channels, bias=True), norm_fn(channels), nn.ReLU(),
-            nn.Linear(channels, semantic_classes))
-
-        # center shift vector branch
-        self.offset_linear = nn.Sequential(
-            nn.Linear(channels, channels, bias=True), norm_fn(channels), nn.ReLU(),
-            nn.Linear(channels, 3, bias=True))
+        # point-wise prediction
+        self.semantic_linear = MLP(channels, semantic_classes, norm_fn, num_layers=2)
+        self.offset_linear = MLP(channels, 3, norm_fn, num_layers=2)
 
         # topdown refinement path
         if not semantic_only:
-            self.intra_ins_unet = UBlock([channels, 2 * channels],
-                                         norm_fn,
-                                         2,
-                                         block,
-                                         indice_key_id=11)
-            self.intra_ins_outputlayer = spconv.SparseSequential(norm_fn(channels), nn.ReLU())
-            self.cls_linear = nn.Linear(channels, instance_classes + 1)
-            self.mask_linear = nn.Sequential(
-                nn.Linear(channels, channels), nn.ReLU(), nn.Linear(channels, instance_classes + 1))
-            # TODO renamve score_linear to iou_score_linear
-            self.score_linear = nn.Linear(channels, instance_classes + 1)
+            self.tiny_unet = UBlock([channels, 2 * channels], norm_fn, 2, block, indice_key_id=11)
+            self.tiny_unet_outputlayer = spconv.SparseSequential(norm_fn(channels), nn.ReLU())
+            self.cls_linear = MLP(channels, instance_classes + 1, norm_fn, num_layers=2)
+            self.mask_linear = MLP(channels, instance_classes + 1, norm_fn, num_layers=2)
+            self.iou_score_linear = MLP(channels, instance_classes + 1, norm_fn, num_layers=2)
 
-            nn.init.normal_(self.score_linear.weight, 0, 0.01)
-            nn.init.constant_(self.score_linear.bias, 0)
-
-        self.apply(self.set_bn_init)
+        self.init_weights()
 
         for mod in fixed_modules:
             mod = getattr(self, mod)
@@ -85,15 +70,13 @@ class SoftGroup(nn.Module):
             for param in mod.parameters():
                 param.requires_grad = False
 
-    @staticmethod
-    def set_bn_init(m):
-        classname = m.__class__.__name__
-        if classname.find('BatchNorm') != -1:
-            m.weight.data.fill_(1.0)
-            m.bias.data.fill_(0.0)
-
     def init_weights(self):
-        pass
+        for m in self.modules():
+            if isinstance(m, nn.BatchNorm1d):
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 0)
+            elif isinstance(m, MLP):
+                m.init_weights()
 
     def forward(self, batch, return_loss=False):
         if return_loss:
@@ -235,17 +218,20 @@ class SoftGroup(nn.Module):
         input = spconv.SparseConvTensor(voxel_feats, voxel_coords.int(), spatial_shape, batch_size)
         semantic_scores, pt_offsets, output_feats, coords_float = self.forward_backbone(
             input, v2p_map, coords_float, x4_split=self.test_cfg.x4_split)
-        proposals_idx, proposals_offset = self.forward_grouping(semantic_scores, pt_offsets,
-                                                                batch_idxs, coords_float,
-                                                                self.grouping_cfg)
-        scores_batch_idxs, cls_scores, iou_scores, mask_scores = self.forward_instance(
-            proposals_idx, proposals_offset, output_feats, coords_float)
-        pred_instances = self.get_instances(batch['scan_ids'][0], proposals_idx, semantic_scores,
-                                            cls_scores, iou_scores, mask_scores)
-        gt_instances = self.get_gt_instances(labels, instance_labels)
-        ret = {}
-        ret['det_ins'] = pred_instances
-        ret['gt_ins'] = gt_instances
+        semantic_preds = semantic_scores.max(1)[1]
+        ret = dict(
+            semantic_preds=semantic_preds.cpu().numpy(), semantic_labels=labels.cpu().numpy())
+        if not self.semantic_only:
+            proposals_idx, proposals_offset = self.forward_grouping(semantic_scores, pt_offsets,
+                                                                    batch_idxs, coords_float,
+                                                                    self.grouping_cfg)
+            scores_batch_idxs, cls_scores, iou_scores, mask_scores = self.forward_instance(
+                proposals_idx, proposals_offset, output_feats, coords_float)
+            pred_instances = self.get_instances(batch['scan_ids'][0], proposals_idx,
+                                                semantic_scores, cls_scores, iou_scores,
+                                                mask_scores)
+            gt_instances = self.get_gt_instances(labels, instance_labels)
+            ret.update(dict(pred_instances=pred_instances, gt_instances=gt_instances))
         return ret
 
     def forward_backbone(self, input, input_map, coords, x4_split=False):
@@ -344,8 +330,8 @@ class SoftGroup(nn.Module):
         input_feats, inp_map = self.clusters_voxelization(proposals_idx, proposals_offset,
                                                           output_feats, coords_float,
                                                           **self.instance_voxel_cfg)
-        feats = self.intra_ins_unet(input_feats)
-        feats = self.intra_ins_outputlayer(feats)
+        feats = self.tiny_unet(input_feats)
+        feats = self.tiny_unet_outputlayer(feats)
 
         # predict mask scores
         mask_scores = self.mask_linear(feats.features)
@@ -355,7 +341,7 @@ class SoftGroup(nn.Module):
         # predict instance cls and iou scores
         feats = self.global_pool(feats)
         cls_scores = self.cls_linear(feats)
-        iou_scores = self.score_linear(feats)
+        iou_scores = self.iou_score_linear(feats)
 
         return instance_batch_idxs, cls_scores, iou_scores, mask_scores
 

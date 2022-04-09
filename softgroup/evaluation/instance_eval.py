@@ -6,7 +6,7 @@ from copy import deepcopy
 import numpy as np
 from tqdm import tqdm
 
-from .util_3d import get_instances
+from .instance_eval_util import get_instances
 
 
 class ScanNetEval(object):

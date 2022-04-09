@@ -6,6 +6,26 @@ from spconv.modules import SparseModule
 from torch import nn
 
 
+class MLP(nn.Sequential):
+
+    def __init__(self, in_channels, out_channels, norm_fn, num_layers=2):
+        modules = []
+        for _ in range(num_layers - 1):
+            modules.extend(
+                [nn.Linear(in_channels, in_channels, bias=False),
+                 norm_fn(in_channels),
+                 nn.ReLU()])
+        modules.append(nn.Linear(in_channels, out_channels))
+        return super().__init__(*modules)
+
+    def init_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Linear):
+                nn.init.xavier_uniform_(m.weight)
+        nn.init.normal_(self[-1].weight, 0, 0.01)
+        nn.init.constant_(self[-1].bias, 0)
+
+
 class ResidualBlock(SparseModule):
 
     def __init__(self, in_channels, out_channels, norm_fn, indice_key=None):
