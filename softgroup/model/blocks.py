@@ -1,8 +1,8 @@
 from collections import OrderedDict
 
-import spconv
+import spconv.pytorch as spconv
 import torch
-from spconv.modules import SparseModule
+from spconv.pytorch.modules import SparseModule
 from torch import nn
 
 
@@ -26,6 +26,20 @@ class MLP(nn.Sequential):
         nn.init.constant_(self[-1].bias, 0)
 
 
+# current 1x1 conv in spconv2x has a bug. It will be removed after the bug is fixed
+class Custom1x1Subm3d(spconv.SparseConv3d):
+
+    def forward(self, input):
+        features = torch.mm(input.features, self.weight.view(self.in_channels, self.out_channels))
+        if self.bias is not None:
+            features += self.bias
+        out_tensor = spconv.SparseConvTensor(features, input.indices, input.spatial_shape,
+                                             input.batch_size)
+        out_tensor.indice_dict = input.indice_dict
+        out_tensor.grid = input.grid
+        return out_tensor
+
+
 class ResidualBlock(SparseModule):
 
     def __init__(self, in_channels, out_channels, norm_fn, indice_key=None):
@@ -35,7 +49,7 @@ class ResidualBlock(SparseModule):
             self.i_branch = spconv.SparseSequential(nn.Identity())
         else:
             self.i_branch = spconv.SparseSequential(
-                spconv.SubMConv3d(in_channels, out_channels, kernel_size=1, bias=False))
+                Custom1x1Subm3d(in_channels, out_channels, kernel_size=1, bias=False))
 
         self.conv_branch = spconv.SparseSequential(
             norm_fn(in_channels), nn.ReLU(),
@@ -58,7 +72,8 @@ class ResidualBlock(SparseModule):
         identity = spconv.SparseConvTensor(input.features, input.indices, input.spatial_shape,
                                            input.batch_size)
         output = self.conv_branch(input)
-        output.features += self.i_branch(identity).features
+        out_feats = output.features + self.i_branch(identity).features
+        output = output.replace_feature(out_feats)
 
         return output
 
@@ -121,6 +136,7 @@ class UBlock(nn.Module):
             output_decoder = self.conv(output)
             output_decoder = self.u(output_decoder)
             output_decoder = self.deconv(output_decoder)
-            output.features = torch.cat((identity.features, output_decoder.features), dim=1)
+            out_feats = torch.cat((identity.features, output_decoder.features), dim=1)
+            output = output.replace_feature(out_feats)
             output = self.blocks_tail(output)
         return output
