@@ -38,9 +38,9 @@ if __name__ == '__main__':
         init_dist()
 
     # work_dir & logger
-    if args.work_dir is not None:
+    if args.work_dir:
         cfg.work_dir = args.work_dir
-    elif cfg.get('work_dir', None) is None:
+    else:
         cfg.work_dir = osp.join('./work_dirs', osp.splitext(osp.basename(args.config))[0])
     os.makedirs(osp.abspath(cfg.work_dir), exist_ok=True)
     timestamp = time.strftime('%Y%m%d_%H%M%S', time.localtime())
@@ -48,6 +48,7 @@ if __name__ == '__main__':
     logger = get_root_logger(log_file=log_file)
     logger.info(f'Config:\n{cfg_txt}')
     logger.info(f'Distributed: {args.dist}')
+    logger.info(f'Mix precision training: {cfg.fp16}')
     shutil.copy(args.config, osp.join(cfg.work_dir, osp.basename(args.config)))
     writer = SummaryWriter(cfg.work_dir)
 
@@ -55,6 +56,7 @@ if __name__ == '__main__':
     model = SoftGroup(**cfg.model).cuda()
     if args.dist:
         model = DistributedDataParallel(model, device_ids=[torch.cuda.current_device()])
+    scaler = torch.cuda.amp.GradScaler(enabled=cfg.fp16)
 
     # data
     train_set = build_dataset(cfg.data.train, logger)
@@ -91,7 +93,9 @@ if __name__ == '__main__':
             data_time.update(time.time() - end)
 
             cosine_lr_after_step(optimizer, cfg.optimizer.lr, epoch - 1, cfg.step_epoch, cfg.epochs)
-            loss, log_vars = model(batch, return_loss=True)
+
+            with torch.cuda.amp.autocast(enabled=cfg.fp16):
+                loss, log_vars = model(batch, return_loss=True)
 
             # meter_dict
             for k, v in log_vars.items():
@@ -101,8 +105,9 @@ if __name__ == '__main__':
 
             # backward
             optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
+            scaler.scale(loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
 
             # time and print
             current_iter = (epoch - 1) * len(train_loader) + i

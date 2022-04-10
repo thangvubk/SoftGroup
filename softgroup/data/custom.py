@@ -70,7 +70,7 @@ class CustomDataset(Dataset):
 
         return x + g(x) * mag
 
-    def getInstanceInfo(self, xyz, instance_label, label):
+    def getInstanceInfo(self, xyz, instance_label, semantic_label):
         pt_mean = np.ones((xyz.shape[0], 3), dtype=np.float32) * -100.0
         instance_pointnum = []
         instance_cls = []
@@ -80,8 +80,8 @@ class CustomDataset(Dataset):
             xyz_i = xyz[inst_idx_i]
             pt_mean[inst_idx_i] = xyz_i.mean(0)
             instance_pointnum.append(inst_idx_i[0].size)
-            cls_loc = inst_idx_i[0][0]
-            instance_cls.append(label[cls_loc])
+            cls_idx = inst_idx_i[0][0]
+            instance_cls.append(semantic_label[cls_idx])
         pt_offset_label = pt_mean - xyz
         return instance_num, instance_pointnum, instance_cls, pt_offset_label
 
@@ -122,7 +122,7 @@ class CustomDataset(Dataset):
             j += 1
         return instance_label
 
-    def transform_train(self, xyz, rgb, label, instance_label):
+    def transform_train(self, xyz, rgb, semantic_label, instance_label):
         xyz_middle = self.dataAugment(xyz, True, True, True)
         xyz = xyz_middle * self.voxel_cfg.scale
         xyz = self.elastic(xyz, 6 * self.voxel_cfg.scale // 50, 40 * self.voxel_cfg.scale / 50)
@@ -140,17 +140,17 @@ class CustomDataset(Dataset):
         xyz = xyz[valid_idxs]
         xyz_middle = xyz_middle[valid_idxs]
         rgb = rgb[valid_idxs]
-        label = label[valid_idxs]
+        semantic_label = semantic_label[valid_idxs]
         instance_label = self.getCroppedInstLabel(instance_label, valid_idxs)
-        return xyz, xyz_middle, rgb, label, instance_label
+        return xyz, xyz_middle, rgb, semantic_label, instance_label
 
-    def transform_test(self, xyz, rgb, label, instance_label):
+    def transform_test(self, xyz, rgb, semantic_label, instance_label):
         xyz_middle = self.dataAugment(xyz, False, True, True)
         xyz = xyz_middle * self.voxel_cfg.scale
         xyz -= xyz.min(0)
         valid_idxs = np.ones(xyz.shape[0], dtype=bool)
         instance_label = self.getCroppedInstLabel(instance_label, valid_idxs)  # TODO remove this
-        return xyz, xyz_middle, rgb, label, instance_label
+        return xyz, xyz_middle, rgb, semantic_label, instance_label
 
     def __getitem__(self, index):
         filename = self.filenames[index]
@@ -159,26 +159,26 @@ class CustomDataset(Dataset):
         data = self.transform_train(*data) if self.training else self.transform_test(*data)
         if data is None:
             return None
-        xyz, xyz_middle, rgb, label, instance_label = data
-        info = self.getInstanceInfo(xyz_middle, instance_label.astype(np.int32), label)
+        xyz, xyz_middle, rgb, semantic_label, instance_label = data
+        info = self.getInstanceInfo(xyz_middle, instance_label.astype(np.int32), semantic_label)
         inst_num, inst_pointnum, inst_cls, pt_offset_label = info
-        loc = torch.from_numpy(xyz).long()
-        loc_float = torch.from_numpy(xyz_middle)
+        coord = torch.from_numpy(xyz).long()
+        coord_float = torch.from_numpy(xyz_middle)
         feat = torch.from_numpy(rgb).float()
         if self.training:
             feat += torch.randn(3) * 0.1
-        label = torch.from_numpy(label)
+        semantic_label = torch.from_numpy(semantic_label)
         instance_label = torch.from_numpy(instance_label)
         pt_offset_label = torch.from_numpy(pt_offset_label)
-        return (scan_id, loc, loc_float, feat, label, instance_label, inst_num, inst_pointnum,
-                inst_cls, pt_offset_label)
+        return (scan_id, coord, coord_float, feat, semantic_label, instance_label, inst_num,
+                inst_pointnum, inst_cls, pt_offset_label)
 
     def collate_fn(self, batch):
         scan_ids = []
-        locs = []
-        locs_float = []
+        coords = []
+        coords_float = []
         feats = []
-        labels = []
+        semantic_labels = []
         instance_labels = []
 
         instance_pointnum = []  # (total_nInst), int
@@ -190,15 +190,15 @@ class CustomDataset(Dataset):
         for data in batch:
             if data is None:
                 continue
-            (scan_id, loc, loc_float, feat, label, instance_label, inst_num, inst_pointnum,
-             inst_cls, pt_offset_label) = data
+            (scan_id, coord, coord_float, feat, semantic_label, instance_label, inst_num,
+             inst_pointnum, inst_cls, pt_offset_label) = data
             instance_label[np.where(instance_label != -100)] += total_inst_num
             total_inst_num += inst_num
             scan_ids.append(scan_id)
-            locs.append(torch.cat([loc.new_full((loc.size(0), 1), batch_id), loc], 1))
-            locs_float.append(loc_float)
+            coords.append(torch.cat([coord.new_full((coord.size(0), 1), batch_id), coord], 1))
+            coords_float.append(coord_float)
             feats.append(feat)
-            labels.append(label)
+            semantic_labels.append(semantic_label)
             instance_labels.append(instance_label)
             instance_pointnum.extend(inst_pointnum)
             instance_cls.extend(inst_cls)
@@ -209,29 +209,29 @@ class CustomDataset(Dataset):
             self.logger.info(f'batch is truncated from size {len(batch)} to {batch_id}')
 
         # merge all the scenes in the batch
-        locs = torch.cat(locs, 0)  # long (N, 1 + 3), the batch item idx is put in locs[:, 0]
-        batch_idxs = locs[:, 0].int()
-        locs_float = torch.cat(locs_float, 0).to(torch.float32)  # float (N, 3)
+        coords = torch.cat(coords, 0)  # long (N, 1 + 3), the batch item idx is put in coords[:, 0]
+        batch_idxs = coords[:, 0].int()
+        coords_float = torch.cat(coords_float, 0).to(torch.float32)  # float (N, 3)
         feats = torch.cat(feats, 0)  # float (N, C)
-        labels = torch.cat(labels, 0).long()  # long (N)
+        semantic_labels = torch.cat(semantic_labels, 0).long()  # long (N)
         instance_labels = torch.cat(instance_labels, 0).long()  # long (N)
         instance_pointnum = torch.tensor(instance_pointnum, dtype=torch.int)  # int (total_nInst)
         instance_cls = torch.tensor(instance_cls, dtype=torch.long)  # long (total_nInst)
         pt_offset_labels = torch.cat(pt_offset_labels).float()
 
         spatial_shape = np.clip(
-            locs.max(0)[0][1:].numpy() + 1, self.voxel_cfg.spatial_shape[0], None)
-        voxel_locs, v2p_map, p2v_map = voxelization_idx(locs, 1)
+            coords.max(0)[0][1:].numpy() + 1, self.voxel_cfg.spatial_shape[0], None)
+        voxel_coords, v2p_map, p2v_map = voxelization_idx(coords, 1)
         return {
             'scan_ids': scan_ids,
-            'locs': locs,
+            'coords': coords,
             'batch_idxs': batch_idxs,
-            'voxel_locs': voxel_locs,
+            'voxel_coords': voxel_coords,
             'p2v_map': p2v_map,
             'v2p_map': v2p_map,
-            'locs_float': locs_float,
+            'coords_float': coords_float,
             'feats': feats,
-            'labels': labels,
+            'semantic_labels': semantic_labels,
             'instance_labels': instance_labels,
             'instance_pointnum': instance_pointnum,
             'instance_cls': instance_cls,

@@ -26,21 +26,21 @@ class S3DISDataset(CustomDataset):
 
     def load(self, filename):
         # TODO make file load results consistent
-        xyz, rgb, label, instance_label, _, _ = torch.load(filename)
+        xyz, rgb, semantic_label, instance_label, _, _ = torch.load(filename)
         # subsample data
         if self.training:
             N = xyz.shape[0]
             inds = np.random.choice(N, int(N * 0.25), replace=False)
             xyz = xyz[inds]
             rgb = rgb[inds]
-            label = label[inds]
+            semantic_label = semantic_label[inds]
             instance_label = self.getCroppedInstLabel(instance_label, inds)
-        return xyz, rgb, label, instance_label
+        return xyz, rgb, semantic_label, instance_label
 
     def crop(self, xyz, step=64):
         return super().crop(xyz, step=step)
 
-    def transform_test(self, xyz, rgb, label, instance_label):
+    def transform_test(self, xyz, rgb, semantic_label, instance_label):
         # devide into 4 piecies
         inds = np.arange(xyz.shape[0])
         piece_1 = inds[::4]
@@ -64,37 +64,37 @@ class S3DISDataset(CustomDataset):
         rgb = np.concatenate(rgb_list, 0)
         valid_idxs = np.ones(xyz.shape[0], dtype=bool)
         instance_label = self.getCroppedInstLabel(instance_label, valid_idxs)  # TODO remove this
-        return xyz, xyz_middle, rgb, label, instance_label
+        return xyz, xyz_middle, rgb, semantic_label, instance_label
 
     def collate_fn(self, batch):
         if self.training:
             return super().collate_fn(batch)
 
         # assume 1 scan only
-        (scan_id, loc, loc_float, feat, label, instance_label, inst_num, inst_pointnum, inst_cls,
-         pt_offset_label) = batch[0]
+        (scan_id, coord, coord_float, feat, semantic_label, instance_label, inst_num, inst_pointnum,
+         inst_cls, pt_offset_label) = batch[0]
         scan_ids = [scan_id]
-        locs = loc.long()
-        batch_idxs = torch.zeros_like(loc[:, 0].int())
-        locs_float = loc_float.float()
+        coords = coord.long()
+        batch_idxs = torch.zeros_like(coord[:, 0].int())
+        coords_float = coord_float.float()
         feats = feat.float()
-        labels = label.long()
+        semantic_labels = semantic_label.long()
         instance_labels = instance_label.long()
         instance_pointnum = torch.tensor([inst_pointnum], dtype=torch.int)
         instance_cls = torch.tensor([inst_cls], dtype=torch.long)
         pt_offset_labels = pt_offset_label.float()
-        spatial_shape = np.clip((locs.max(0)[0][1:] + 1).numpy(), self.voxel_cfg.spatial_shape[0],
+        spatial_shape = np.clip((coords.max(0)[0][1:] + 1).numpy(), self.voxel_cfg.spatial_shape[0],
                                 None)
-        voxel_locs, v2p_map, p2v_map = voxelization_idx(locs, 4)
+        voxel_coords, v2p_map, p2v_map = voxelization_idx(coords, 4)
         return {
             'scan_ids': scan_ids,
             'batch_idxs': batch_idxs,
-            'voxel_locs': voxel_locs,
+            'voxel_coords': voxel_coords,
             'p2v_map': p2v_map,
             'v2p_map': v2p_map,
-            'locs_float': locs_float,
+            'coords_float': coords_float,
             'feats': feats,
-            'labels': labels,
+            'semantic_labels': semantic_labels,
             'instance_labels': instance_labels,
             'instance_pointnum': instance_pointnum,
             'instance_cls': instance_cls,

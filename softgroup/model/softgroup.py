@@ -8,6 +8,7 @@ import torch.nn.functional as F
 from ..lib.softgroup_ops import (ballquery_batch_p, bfs_cluster, get_mask_iou_on_cluster,
                                  get_mask_iou_on_pred, get_mask_label, global_avg_pool, sec_max,
                                  sec_min, voxelization, voxelization_idx)
+from ..util import force_fp32
 from .blocks import MLP, ResidualBlock, UBlock
 
 
@@ -80,25 +81,13 @@ class SoftGroup(nn.Module):
 
     def forward(self, batch, return_loss=False):
         if return_loss:
-            return self.forward_train(batch)
+            return self.forward_train(**batch)
         else:
-            return self.forward_test(batch)
+            return self.forward_test(**batch)
 
-    def forward_train(self, batch):
-        batch_idxs = batch['batch_idxs'].cuda()
-        voxel_coords = batch['voxel_locs'].cuda()
-        p2v_map = batch['p2v_map'].cuda()
-        v2p_map = batch['v2p_map'].cuda()
-        coords_float = batch['locs_float'].cuda()
-        feats = batch['feats'].cuda()
-        semantic_labels = batch['labels'].cuda()
-        instance_labels = batch['instance_labels'].cuda()
-        instance_pointnum = batch['instance_pointnum'].cuda()
-        instance_cls = batch['instance_cls'].cuda()
-        pt_offset_labels = batch['pt_offset_labels'].cuda()
-        spatial_shape = batch['spatial_shape']
-        batch_size = batch['batch_size']
-
+    def forward_train(self, batch_idxs, voxel_coords, p2v_map, v2p_map, coords_float, feats,
+                      semantic_labels, instance_labels, instance_pointnum, instance_cls,
+                      pt_offset_labels, spatial_shape, batch_size, **kwargs):
         losses = {}
         feats = torch.cat((feats, coords_float), 1)
         voxel_feats = voxelization(feats, p2v_map)
@@ -155,6 +144,7 @@ class SoftGroup(nn.Module):
         losses['offset_loss'] = (offset_loss, pos_inds.sum())
         return losses
 
+    @force_fp32(apply_to=('cls_scores', 'mask_scores', 'iou_scores'))
     def instance_loss(self, cls_scores, mask_scores, iou_scores, proposals_idx, proposals_offset,
                       instance_labels, instance_pointnum, instance_cls, instance_batch_idxs):
         losses = {}
@@ -208,18 +198,9 @@ class SoftGroup(nn.Module):
         losses['iou_score_loss'] = (iou_score_loss, iou_score_weight.sum())
         return losses
 
-    def forward_test(self, batch):
-        batch_idxs = batch['batch_idxs'].cuda()
-        voxel_coords = batch['voxel_locs'].cuda()
-        p2v_map = batch['p2v_map'].cuda()
-        v2p_map = batch['v2p_map'].cuda()
-        coords_float = batch['locs_float'].cuda()
-        feats = batch['feats'].cuda()
-        labels = batch['labels'].cuda()
-        instance_labels = batch['instance_labels'].cuda()
-        spatial_shape = batch['spatial_shape']
-        batch_size = batch['batch_size']
-
+    def forward_test(self, batch_idxs, voxel_coords, p2v_map, v2p_map, coords_float, feats,
+                     semantic_labels, instance_labels, spatial_shape, batch_size, scan_ids,
+                     **kwargs):
         feats = torch.cat((feats, coords_float), 1)
         voxel_feats = voxelization(feats, p2v_map)
         input = spconv.SparseConvTensor(voxel_feats, voxel_coords.int(), spatial_shape, batch_size)
@@ -227,7 +208,8 @@ class SoftGroup(nn.Module):
             input, v2p_map, coords_float, x4_split=self.test_cfg.x4_split)
         semantic_preds = semantic_scores.max(1)[1]
         ret = dict(
-            semantic_preds=semantic_preds.cpu().numpy(), semantic_labels=labels.cpu().numpy())
+            semantic_preds=semantic_preds.cpu().numpy(),
+            semantic_labels=semantic_labels.cpu().numpy())
         if not self.semantic_only:
             proposals_idx, proposals_offset = self.forward_grouping(semantic_scores, pt_offsets,
                                                                     batch_idxs, coords_float,
@@ -236,10 +218,9 @@ class SoftGroup(nn.Module):
                                                               output_feats, coords_float,
                                                               **self.instance_voxel_cfg)
             _, cls_scores, iou_scores, mask_scores = self.forward_instance(inst_feats, inst_map)
-            pred_instances = self.get_instances(batch['scan_ids'][0], proposals_idx,
-                                                semantic_scores, cls_scores, iou_scores,
-                                                mask_scores)
-            gt_instances = self.get_gt_instances(labels, instance_labels)
+            pred_instances = self.get_instances(scan_ids[0], proposals_idx, semantic_scores,
+                                                cls_scores, iou_scores, mask_scores)
+            gt_instances = self.get_gt_instances(semantic_labels, instance_labels)
             ret.update(dict(pred_instances=pred_instances, gt_instances=gt_instances))
         return ret
 
@@ -289,6 +270,7 @@ class SoftGroup(nn.Module):
             x_new[p] = x_split[i]
         return x_new
 
+    @force_fp32(apply_to=('semantic_scores, pt_offsets'))
     def forward_grouping(self,
                          semantic_scores,
                          pt_offsets,
@@ -350,6 +332,7 @@ class SoftGroup(nn.Module):
 
         return instance_batch_idxs, cls_scores, iou_scores, mask_scores
 
+    @force_fp32(apply_to=('semantic_scores', 'cls_scores', 'iou_scores', 'mask_scores'))
     def get_instances(self, scan_id, proposals_idx, semantic_scores, cls_scores, iou_scores,
                       mask_scores):
         num_instances = cls_scores.size(0)
@@ -402,19 +385,21 @@ class SoftGroup(nn.Module):
             instances.append(pred)
         return instances
 
-    def get_gt_instances(self, labels, instance_labels):
+    def get_gt_instances(self, semantic_labels, instance_labels):
         """Get gt instances for evaluation."""
         # convert to evaluation format 0: ignore, 1->N: valid
         label_shift = self.semantic_classes - self.instance_classes
-        labels = labels - label_shift + 1
-        labels[labels < 0] = 0
+        semantic_labels = semantic_labels - label_shift + 1
+        semantic_labels[semantic_labels < 0] = 0
         instance_labels += 1
         ignore_inds = instance_labels < 0
-        gt_ins = labels * 1000 + instance_labels
+        # scannet encoding rule
+        gt_ins = semantic_labels * 1000 + instance_labels
         gt_ins[ignore_inds] = 0
         gt_ins = gt_ins.cpu().numpy()
         return gt_ins
 
+    @force_fp32(apply_to='feats')
     def clusters_voxelization(self,
                               clusters_idx,
                               clusters_offset,
@@ -466,6 +451,7 @@ class SoftGroup(nn.Module):
         assert batch_offsets[-1] == batch_idxs.shape[0]
         return batch_offsets
 
+    @force_fp32(apply_to=('x'))
     def global_pool(self, x, expand=False):
         indices = x.indices[:, 0]
         batch_counts = torch.bincount(indices)
