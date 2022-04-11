@@ -1,3 +1,4 @@
+import functools
 import os
 import os.path as osp
 from collections import OrderedDict
@@ -63,6 +64,8 @@ def weights_to_cpu(state_dict):
 
 @master_only
 def checkpoint_save(epoch, model, optimizer, work_dir, save_freq=16):
+    if hasattr(model, 'module'):
+        model = model.module
     f = os.path.join(work_dir, f'epoch_{epoch}.pth')
     checkpoint = {
         'net': weights_to_cpu(model.state_dict()),
@@ -120,3 +123,22 @@ def get_max_memory():
     mem = torch.cuda.max_memory_allocated()
     mem_mb = torch.tensor([int(mem) // (1024 * 1024)], dtype=torch.int)
     return mem_mb.item()
+
+
+def cuda_cast(func):
+
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        new_args = []
+        for x in args:
+            if isinstance(x, torch.Tensor):
+                x = x.cuda()
+            new_args.append(x)
+        new_kwargs = {}
+        for k, v in kwargs.items():
+            if isinstance(v, torch.Tensor):
+                v = v.cuda()
+            new_kwargs[k] = v
+        return func(*new_args, **new_kwargs)
+
+    return wrapper

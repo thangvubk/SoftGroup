@@ -8,7 +8,7 @@ import torch.nn.functional as F
 from ..lib.softgroup_ops import (ballquery_batch_p, bfs_cluster, get_mask_iou_on_cluster,
                                  get_mask_iou_on_pred, get_mask_label, global_avg_pool, sec_max,
                                  sec_min, voxelization, voxelization_idx)
-from ..util import force_fp32
+from ..util import cuda_cast, force_fp32
 from .blocks import MLP, ResidualBlock, UBlock
 
 
@@ -85,6 +85,7 @@ class SoftGroup(nn.Module):
         else:
             return self.forward_test(**batch)
 
+    @cuda_cast
     def forward_train(self, batch_idxs, voxel_coords, p2v_map, v2p_map, coords_float, feats,
                       semantic_labels, instance_labels, instance_pointnum, instance_cls,
                       pt_offset_labels, spatial_shape, batch_size, **kwargs):
@@ -198,6 +199,7 @@ class SoftGroup(nn.Module):
         losses['iou_score_loss'] = (iou_score_loss, iou_score_weight.sum())
         return losses
 
+    @cuda_cast
     def forward_test(self, batch_idxs, voxel_coords, p2v_map, v2p_map, coords_float, feats,
                      semantic_labels, instance_labels, spatial_shape, batch_size, scan_ids,
                      **kwargs):
