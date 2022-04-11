@@ -66,8 +66,9 @@ optimizer:
   type: 'Adam'
   lr: 0.004
 
+fp16: False
 epochs: 128
 step_epoch: 50
 save_freq: 4
-pretrain: 'work_dirs/softgroup_scannet_backbone_spconv2_dist/epoch_116.pth'
-work_dir: 'work_dirs/softgroup_scannet_spconv2_dist'
+pretrain: 'work_dirs/softgroup_scannet_backbone/epoch_120.pth'
+work_dir: ''

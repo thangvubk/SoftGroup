@@ -71,4 +71,4 @@ epochs: 128
 step_epoch: 50
 save_freq: 4
 pretrain: ''
-work_dir: 'work_dirs/softgroup_scannet_backbone'
+work_dir: ''

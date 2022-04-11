@@ -33,10 +33,9 @@ if __name__ == '__main__':
     cfg = Munch.fromDict(yaml.safe_load(cfg_txt))
     logger = get_root_logger()
 
-    model = SoftGroup(**cfg.model)
+    model = SoftGroup(**cfg.model).cuda()
     logger.info(f'Load state dict from {args.checkpoint}')
     load_checkpoint(args.checkpoint, logger, model)
-    model.cuda()
 
     dataset = build_dataset(cfg.data.test, logger)
     dataloader = build_dataloader(dataset, training=False, **cfg.dataloader.test)
