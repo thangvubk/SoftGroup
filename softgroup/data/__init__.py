@@ -43,5 +43,6 @@ def build_dataloader(dataset, batch_size=1, num_workers=1, training=True, dist=F
             num_workers=num_workers,
             collate_fn=dataset.collate_fn,
             shuffle=False,
+            sampler=sampler,
             drop_last=False,
             pin_memory=True)

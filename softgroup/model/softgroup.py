@@ -8,7 +8,7 @@ import torch.nn.functional as F
 from ..lib.softgroup_ops import (ballquery_batch_p, bfs_cluster, get_mask_iou_on_cluster,
                                  get_mask_iou_on_pred, get_mask_label, global_avg_pool, sec_max,
                                  sec_min, voxelization, voxelization_idx)
-from ..util import cuda_cast, force_fp32
+from ..util import cuda_cast, force_fp32, rle_encode
 from .blocks import MLP, ResidualBlock, UBlock
 
 
@@ -201,8 +201,8 @@ class SoftGroup(nn.Module):
 
     @cuda_cast
     def forward_test(self, batch_idxs, voxel_coords, p2v_map, v2p_map, coords_float, feats,
-                     semantic_labels, instance_labels, spatial_shape, batch_size, scan_ids,
-                     **kwargs):
+                     semantic_labels, instance_labels, pt_offset_labels, spatial_shape, batch_size,
+                     scan_ids, **kwargs):
         feats = torch.cat((feats, coords_float), 1)
         voxel_feats = voxelization(feats, p2v_map)
         input = spconv.SparseConvTensor(voxel_feats, voxel_coords.int(), spatial_shape, batch_size)
@@ -211,7 +211,10 @@ class SoftGroup(nn.Module):
         semantic_preds = semantic_scores.max(1)[1]
         ret = dict(
             semantic_preds=semantic_preds.cpu().numpy(),
-            semantic_labels=semantic_labels.cpu().numpy())
+            semantic_labels=semantic_labels.cpu().numpy(),
+            offset_preds=pt_offsets.cpu().numpy(),
+            offset_labels=pt_offset_labels.cpu().numpy(),
+            instance_labels=instance_labels.cpu().numpy())
         if not self.semantic_only:
             proposals_idx, proposals_offset = self.forward_grouping(semantic_scores, pt_offsets,
                                                                     batch_idxs, coords_float,
@@ -383,7 +386,8 @@ class SoftGroup(nn.Module):
             pred['scan_id'] = scan_id
             pred['label_id'] = cls_pred[i]
             pred['conf'] = score_pred[i]
-            pred['pred_mask'] = mask_pred[i]
+            # rle encode mask to save memory
+            pred['pred_mask'] = rle_encode(mask_pred[i])
             instances.append(pred)
         return instances
 

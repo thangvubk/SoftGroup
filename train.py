@@ -9,12 +9,13 @@ import torch
 import yaml
 from munch import Munch
 from softgroup.data import build_dataloader, build_dataset
-from softgroup.evaluation import ScanNetEval, evaluate_semantic_acc, evaluate_semantic_miou
+from softgroup.evaluation import (ScanNetEval, evaluate_offset_mae, evaluate_semantic_acc,
+                                  evaluate_semantic_miou)
 from softgroup.model import SoftGroup
-from softgroup.util import (AverageMeter, build_optimizer, checkpoint_save, cosine_lr_after_step,
-                            get_max_memory, get_root_logger, init_dist, is_multiple, is_power2,
-                            load_checkpoint)
-from tensorboardX import SummaryWriter
+from softgroup.util import (AverageMeter, SummaryWriter, build_optimizer, checkpoint_save,
+                            collect_results_gpu, cosine_lr_after_step, get_dist_info,
+                            get_max_memory, get_root_logger, init_dist, is_main_process,
+                            is_multiple, is_power2, load_checkpoint)
 from torch.nn.parallel import DistributedDataParallel
 from tqdm import tqdm
 
@@ -63,7 +64,7 @@ if __name__ == '__main__':
     val_set = build_dataset(cfg.data.test, logger)
     train_loader = build_dataloader(
         train_set, training=True, dist=args.dist, **cfg.dataloader.train)
-    val_loader = build_dataloader(val_set, training=False, **cfg.dataloader.test)
+    val_loader = build_dataloader(val_set, training=False, dist=args.dist, **cfg.dataloader.test)
 
     # optim
     optimizer = build_optimizer(model, cfg.optimizer)
@@ -118,9 +119,7 @@ if __name__ == '__main__':
             remain_time = remain_iter * iter_time.avg
             remain_time = str(datetime.timedelta(seconds=int(remain_time)))
             lr = optimizer.param_groups[0]['lr']
-            writer.add_scalar('learning_rate', lr, current_iter)
-            for k, v in meter_dict.items():
-                writer.add_scalar(k, v.val, current_iter)
+
             if is_multiple(i, 10):
                 log_str = f'Epoch [{epoch}/{cfg.epochs}][{i}/{len(train_loader)}]  '
                 log_str += f'lr: {lr:.2g}, eta: {remain_time}, mem: {get_max_memory()}, '\
@@ -128,30 +127,52 @@ if __name__ == '__main__':
                 for k, v in meter_dict.items():
                     log_str += f', {k}: {v.val:.4f}'
                 logger.info(log_str)
+        writer.add_scalar('train/learning_rate', lr, epoch)
+        for k, v in meter_dict.items():
+            writer.add_scalar(f'train/{k}', v.avg, epoch)
         checkpoint_save(epoch, model, optimizer, cfg.work_dir, cfg.save_freq)
 
         # validation
         if is_multiple(epoch, cfg.save_freq) or is_power2(epoch):
-            all_sem_preds, all_sem_labels, all_pred_insts, all_gt_insts = [], [], [], []
             logger.info('Validation')
+            results = []
+            all_sem_preds, all_sem_labels, all_offset_preds, all_offset_labels = [], [], [], []
+            all_inst_labels, all_pred_insts, all_gt_insts = [], [], []
+            _, world_size = get_dist_info()
+            progress_bar = tqdm(total=len(val_loader) * world_size, disable=not is_main_process())
             with torch.no_grad():
                 model = model.eval()
-                for batch in tqdm(val_loader, total=len(val_loader)):
-                    ret = model(batch)
-                    all_sem_preds.append(ret['semantic_preds'])
-                    all_sem_labels.append(ret['semantic_labels'])
+                for i, batch in enumerate(val_loader):
+                    result = model(batch)
+                    results.append(result)
+                    progress_bar.update(world_size)
+                progress_bar.close()
+                results = collect_results_gpu(results, len(val_set))
+            if is_main_process():
+                for res in results:
+                    all_sem_preds.append(res['semantic_preds'])
+                    all_sem_labels.append(res['semantic_labels'])
+                    all_offset_preds.append(res['offset_preds'])
+                    all_offset_labels.append(res['offset_labels'])
+                    all_inst_labels.append(res['instance_labels'])
                     if not cfg.model.semantic_only:
-                        all_pred_insts.append(ret['pred_instances'])
-                        all_gt_insts.append(ret['gt_instances'])
+                        all_pred_insts.append(res['pred_instances'])
+                        all_gt_insts.append(res['gt_instances'])
                 if not cfg.model.semantic_only:
                     logger.info('Evaluate instance segmentation')
-                    scannet_eval = ScanNetEval(val_loader.dataset.CLASSES)
-                    scannet_eval.evaluate(all_pred_insts, all_gt_insts)
-                logger.info('Evaluate semantic segmentation')
+                    scannet_eval = ScanNetEval(val_set.CLASSES)
+                    eval_res = scannet_eval.evaluate(all_pred_insts, all_gt_insts)
+                    writer.add_scalar('val/AP', eval_res['all_ap'], epoch)
+                    writer.add_scalar('val/AP_50', eval_res['all_ap_50%'], epoch)
+                    writer.add_scalar('val/AP_25', eval_res['all_ap_25%'], epoch)
+                logger.info('Evaluate semantic segmentation and offset MAE')
                 miou = evaluate_semantic_miou(all_sem_preds, all_sem_labels, cfg.model.ignore_label,
                                               logger)
                 acc = evaluate_semantic_acc(all_sem_preds, all_sem_labels, cfg.model.ignore_label,
                                             logger)
-                writer.add_scalar('mIoU', miou, epoch)
-                writer.add_scalar('Acc', acc, epoch)
+                mae = evaluate_offset_mae(all_offset_preds, all_offset_labels, all_inst_labels,
+                                          cfg.model.ignore_label, logger)
+                writer.add_scalar('val/mIoU', miou, epoch)
+                writer.add_scalar('val/Acc', acc, epoch)
+                writer.add_scalar('val/Offset MAE', mae, epoch)
         writer.flush()

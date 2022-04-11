@@ -30,3 +30,15 @@ def evaluate_semantic_miou(pred_list, gt_list, ignore_label=-100, logger=None):
     logger.info('Class-wise mIoU: ' + ' '.join(f'{x:.1f}' for x in iou_list))
     logger.info(f'mIoU: {miou:.1f}')
     return miou
+
+
+def evaluate_offset_mae(pred_list, gt_list, gt_instance_list, ignore_label=-100, logger=None):
+    gt = np.concatenate(gt_list, axis=0)
+    pred = np.concatenate(pred_list, axis=0)
+    gt_instance = np.concatenate(gt_instance_list, axis=0)
+    pos_inds = gt_instance != ignore_label
+    gt = gt[pos_inds]
+    pred = pred[pos_inds]
+    mae = np.abs(gt - pred).sum() / pos_inds.sum()
+    logger.info(f'Offset MAE: {mae:.3f}')
+    return mae

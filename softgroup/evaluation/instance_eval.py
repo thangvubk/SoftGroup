@@ -6,6 +6,7 @@ from copy import deepcopy
 import numpy as np
 from tqdm import tqdm
 
+from ..util import rle_decode
 from .instance_eval_util import get_instances
 
 
@@ -260,6 +261,9 @@ class ScanNetEval(object):
                 label_name = self.eval_class_labels[0]  # class agnostic label
             conf = pred['conf']
             pred_mask = pred['pred_mask']
+            # pred_mask can be np.array or rle dict
+            if isinstance(pred_mask, dict):
+                pred_mask = rle_decode(pred_mask)
             assert pred_mask.shape[0] == gts.shape[0]
 
             # convert to binary
