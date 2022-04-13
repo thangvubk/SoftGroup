@@ -82,8 +82,8 @@ if __name__ == '__main__':
     logger.info('Training')
     for epoch in range(start_epoch, cfg.epochs + 1):
         model.train()
-        iter_time = AverageMeter()
-        data_time = AverageMeter()
+        iter_time = AverageMeter(True)
+        data_time = AverageMeter(True)
         meter_dict = {}
         end = time.time()
 
@@ -102,7 +102,7 @@ if __name__ == '__main__':
             for k, v in log_vars.items():
                 if k not in meter_dict.keys():
                     meter_dict[k] = AverageMeter()
-                meter_dict[k].update(v[0], v[1])
+                meter_dict[k].update(v)
 
             # backward
             optimizer.zero_grad()
@@ -111,9 +111,7 @@ if __name__ == '__main__':
             scaler.update()
 
             # time and print
-            current_iter = (epoch - 1) * len(train_loader) + i
-            max_iter = cfg.epochs * len(train_loader)
-            remain_iter = max_iter - current_iter
+            remain_iter = len(train_loader) * (cfg.epochs - epoch + 1) - i
             iter_time.update(time.time() - end)
             end = time.time()
             remain_time = remain_iter * iter_time.avg

@@ -5,14 +5,16 @@ from collections import OrderedDict
 from math import cos, pi
 
 import torch
+from torch import distributed as dist
 
-from .dist import master_only
+from .dist import get_dist_info, master_only
 
 
 class AverageMeter(object):
     """Computes and stores the average and current value."""
 
-    def __init__(self):
+    def __init__(self, apply_dist_reduce=False):
+        self.apply_dist_reduce = apply_dist_reduce
         self.reset()
 
     def reset(self):
@@ -20,6 +22,27 @@ class AverageMeter(object):
         self.avg = 0
         self.sum = 0
         self.count = 0
+
+    def dist_reduce(self, val):
+        rank, world_size = get_dist_info()
+        if world_size == 1:
+            return val
+        if not isinstance(val, torch.Tensor):
+            val = torch.tensor(val, device='cuda')
+        dist.all_reduce(val)
+        return val.item() / world_size
+
+    def get_val(self):
+        if self.apply_dist_reduce:
+            return self.dist_reduce(self.val)
+        else:
+            return self.val
+
+    def get_avg(self):
+        if self.apply_dist_reduce:
+            return self.dist_reduce(self.avg)
+        else:
+            return self.avg
 
     def update(self, val, n=1):
         self.val = val
@@ -124,7 +147,10 @@ def load_checkpoint(checkpoint, logger, model, optimizer=None, strict=False):
 
 def get_max_memory():
     mem = torch.cuda.max_memory_allocated()
-    mem_mb = torch.tensor([int(mem) // (1024 * 1024)], dtype=torch.int)
+    mem_mb = torch.tensor([int(mem) // (1024 * 1024)], dtype=torch.int, device='cuda')
+    _, world_size = get_dist_info()
+    if world_size > 1:
+        dist.reduce(mem_mb, 0, op=dist.ReduceOp.MAX)
     return mem_mb.item()
 
 

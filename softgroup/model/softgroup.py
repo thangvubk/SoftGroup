@@ -2,6 +2,7 @@ import functools
 
 import spconv.pytorch as spconv
 import torch
+import torch.distributed as dist
 import torch.nn as nn
 import torch.nn.functional as F
 
@@ -123,18 +124,14 @@ class SoftGroup(nn.Module):
                                                proposals_offset, instance_labels, instance_pointnum,
                                                instance_cls, instance_batch_idxs)
             losses.update(instance_loss)
-
-        # parse loss
-        loss = sum(v[0] for v in losses.values())
-        losses['loss'] = (loss, batch_idxs.size(0))
-        return loss, losses
+        return self.parse_losses(losses)
 
     def point_wise_loss(self, semantic_scores, pt_offsets, semantic_labels, instance_labels,
                         pt_offset_labels):
         losses = {}
         semantic_loss = F.cross_entropy(
             semantic_scores, semantic_labels, ignore_index=self.ignore_label)
-        losses['semantic_loss'] = (semantic_loss, semantic_scores.size(0))
+        losses['semantic_loss'] = semantic_loss
 
         pos_inds = instance_labels != self.ignore_label
         if pos_inds.sum() == 0:
@@ -142,7 +139,7 @@ class SoftGroup(nn.Module):
         else:
             offset_loss = F.l1_loss(
                 pt_offsets[pos_inds], pt_offset_labels[pos_inds], reduction='sum') / pos_inds.sum()
-        losses['offset_loss'] = (offset_loss, pos_inds.sum())
+        losses['offset_loss'] = offset_loss
         return losses
 
     @force_fp32(apply_to=('cls_scores', 'mask_scores', 'iou_scores'))
@@ -170,7 +167,7 @@ class SoftGroup(nn.Module):
         labels = fg_instance_cls.new_full((fg_ious_on_cluster.size(0), ), self.instance_classes)
         labels[pos_inds] = fg_instance_cls[pos_gt_inds]
         cls_loss = F.cross_entropy(cls_scores, labels)
-        losses['cls_loss'] = (cls_loss, labels.size(0))
+        losses['cls_loss'] = cls_loss
 
         # compute mask loss
         mask_cls_label = labels[instance_batch_idxs.long()]
@@ -184,7 +181,7 @@ class SoftGroup(nn.Module):
         mask_loss = F.binary_cross_entropy(
             mask_scores_sigmoid_slice, mask_label, weight=mask_label_weight, reduction='sum')
         mask_loss /= (mask_label_weight.sum() + 1)
-        losses['mask_loss'] = (mask_loss, mask_label_weight.sum())
+        losses['mask_loss'] = mask_loss
 
         # compute iou score loss
         ious = get_mask_iou_on_pred(proposals_idx, proposals_offset, instance_labels,
@@ -196,8 +193,18 @@ class SoftGroup(nn.Module):
         iou_score_slice = iou_scores[slice_inds, labels]
         iou_score_loss = F.mse_loss(iou_score_slice, gt_ious, reduction='none')
         iou_score_loss = (iou_score_loss * iou_score_weight).sum() / (iou_score_weight.sum() + 1)
-        losses['iou_score_loss'] = (iou_score_loss, iou_score_weight.sum())
+        losses['iou_score_loss'] = iou_score_loss
         return losses
+
+    def parse_losses(self, losses):
+        loss = sum(v for v in losses.values())
+        losses['loss'] = loss
+        for loss_name, loss_value in losses.items():
+            if dist.is_available() and dist.is_initialized():
+                loss_value = loss_value.data.clone()
+                dist.all_reduce(loss_value.div_(dist.get_world_size()))
+            losses[loss_name] = loss_value.item()
+        return loss, losses
 
     @cuda_cast
     def forward_test(self, batch_idxs, voxel_coords, p2v_map, v2p_map, coords_float, feats,
