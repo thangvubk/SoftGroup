@@ -40,6 +40,7 @@ class SoftGroup(nn.Module):
         self.instance_voxel_cfg = instance_voxel_cfg
         self.train_cfg = train_cfg
         self.test_cfg = test_cfg
+        self.fixed_modules = fixed_modules
 
         block = ResidualBlock
         norm_fn = functools.partial(nn.BatchNorm1d, eps=1e-4, momentum=0.1)
@@ -53,22 +54,21 @@ class SoftGroup(nn.Module):
         self.output_layer = spconv.SparseSequential(norm_fn(channels), nn.ReLU())
 
         # point-wise prediction
-        self.semantic_linear = MLP(channels, semantic_classes, norm_fn, num_layers=2)
-        self.offset_linear = MLP(channels, 3, norm_fn, num_layers=2)
+        self.semantic_linear = MLP(channels, semantic_classes, norm_fn=norm_fn, num_layers=2)
+        self.offset_linear = MLP(channels, 3, norm_fn=norm_fn, num_layers=2)
 
         # topdown refinement path
         if not semantic_only:
             self.tiny_unet = UBlock([channels, 2 * channels], norm_fn, 2, block, indice_key_id=11)
             self.tiny_unet_outputlayer = spconv.SparseSequential(norm_fn(channels), nn.ReLU())
-            self.cls_linear = MLP(channels, instance_classes + 1, norm_fn, num_layers=2)
-            self.mask_linear = MLP(channels, instance_classes + 1, norm_fn, num_layers=2)
-            self.iou_score_linear = MLP(channels, instance_classes + 1, norm_fn, num_layers=2)
+            self.cls_linear = nn.Linear(channels, instance_classes + 1)
+            self.mask_linear = MLP(channels, instance_classes + 1, norm_fn=None, num_layers=2)
+            self.iou_score_linear = nn.Linear(channels, instance_classes + 1)
 
         self.init_weights()
 
         for mod in fixed_modules:
             mod = getattr(self, mod)
-            mod.eval()
             for param in mod.parameters():
                 param.requires_grad = False
 
@@ -79,6 +79,17 @@ class SoftGroup(nn.Module):
                 nn.init.constant_(m.bias, 0)
             elif isinstance(m, MLP):
                 m.init_weights()
+        for m in [self.cls_linear, self.iou_score_linear]:
+            nn.init.normal_(m.weight, 0, 0.01)
+            nn.init.constant_(m.bias, 0)
+
+    def train(self, mode=True):
+        super().train(mode)
+        for mod in self.fixed_modules:
+            mod = getattr(self, mod)
+            for m in mod.modules():
+                if isinstance(m, nn.BatchNorm1d):
+                    m.eval()
 
     def forward(self, batch, return_loss=False):
         if return_loss:
@@ -94,8 +105,7 @@ class SoftGroup(nn.Module):
         feats = torch.cat((feats, coords_float), 1)
         voxel_feats = voxelization(feats, p2v_map)
         input = spconv.SparseConvTensor(voxel_feats, voxel_coords.int(), spatial_shape, batch_size)
-        semantic_scores, pt_offsets, output_feats, coords_float = self.forward_backbone(
-            input, v2p_map, coords_float)
+        semantic_scores, pt_offsets, output_feats = self.forward_backbone(input, v2p_map)
 
         # point wise losses
         point_wise_loss = self.point_wise_loss(semantic_scores, pt_offsets, semantic_labels,
@@ -213,8 +223,13 @@ class SoftGroup(nn.Module):
         feats = torch.cat((feats, coords_float), 1)
         voxel_feats = voxelization(feats, p2v_map)
         input = spconv.SparseConvTensor(voxel_feats, voxel_coords.int(), spatial_shape, batch_size)
-        semantic_scores, pt_offsets, output_feats, coords_float = self.forward_backbone(
-            input, v2p_map, coords_float, x4_split=self.test_cfg.x4_split)
+        semantic_scores, pt_offsets, output_feats = self.forward_backbone(
+            input, v2p_map, x4_split=self.test_cfg.x4_split)
+        if self.test_cfg.x4_split:
+            coords_float = self.merge_4_parts(coords_float)
+            semantic_labels = self.merge_4_parts(semantic_labels)
+            instance_labels = self.merge_4_parts(instance_labels)
+            pt_offset_labels = self.merge_4_parts(pt_offset_labels)
         semantic_preds = semantic_scores.max(1)[1]
         ret = dict(
             semantic_preds=semantic_preds.cpu().numpy(),
@@ -236,11 +251,10 @@ class SoftGroup(nn.Module):
             ret.update(dict(pred_instances=pred_instances, gt_instances=gt_instances))
         return ret
 
-    def forward_backbone(self, input, input_map, coords, x4_split=False):
+    def forward_backbone(self, input, input_map, x4_split=False):
         if x4_split:
             output_feats = self.forward_4_parts(input, input_map)
             output_feats = self.merge_4_parts(output_feats)
-            coords = self.merge_4_parts(coords)
         else:
             output = self.input_conv(input)
             output = self.unet(output)
@@ -249,7 +263,7 @@ class SoftGroup(nn.Module):
 
         semantic_scores = self.semantic_linear(output_feats)
         pt_offsets = self.offset_linear(output_feats)
-        return semantic_scores, pt_offsets, output_feats, coords
+        return semantic_scores, pt_offsets, output_feats
 
     def forward_4_parts(self, x, input_map):
         """Helper function for s3dis: devide and forward 4 parts of a scene."""

@@ -90,11 +90,17 @@ class CustomDataset(Dataset):
         if jitter and np.random.rand() < prob:
             m += np.random.randn(3, 3) * 0.1
         if flip and np.random.rand() < prob:
-            m[0][0] *= np.random.randint(0, 2) * 2 - 1  # flip x randomly
+            m[0][0] *= np.random.randint(0, 2) * 2 - 1
         if rot and np.random.rand() < prob:
             theta = np.random.rand() * 2 * math.pi
             m = np.matmul(m, [[math.cos(theta), math.sin(theta), 0],
-                              [-math.sin(theta), math.cos(theta), 0], [0, 0, 1]])  # rotation
+                              [-math.sin(theta), math.cos(theta), 0], [0, 0, 1]])
+        else:
+            # Empirically, slightly rotate the scene can match the results from checkpoint
+            theta = 0.45 * math.pi
+            m = np.matmul(m, [[math.cos(theta), math.sin(theta), 0],
+                              [-math.sin(theta), math.cos(theta), 0], [0, 0, 1]])
+
         return np.matmul(xyz, m)
 
     def crop(self, xyz, step=32):

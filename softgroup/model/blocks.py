@@ -8,13 +8,13 @@ from torch import nn
 
 class MLP(nn.Sequential):
 
-    def __init__(self, in_channels, out_channels, norm_fn, num_layers=2):
+    def __init__(self, in_channels, out_channels, norm_fn=None, num_layers=2):
         modules = []
         for _ in range(num_layers - 1):
-            modules.extend(
-                [nn.Linear(in_channels, in_channels, bias=False),
-                 norm_fn(in_channels),
-                 nn.ReLU()])
+            modules.append(nn.Linear(in_channels, in_channels))
+            if norm_fn:
+                modules.append(norm_fn(in_channels))
+            modules.append(nn.ReLU())
         modules.append(nn.Linear(in_channels, out_channels))
         return super().__init__(*modules)
 
@@ -22,6 +22,7 @@ class MLP(nn.Sequential):
         for m in self.modules():
             if isinstance(m, nn.Linear):
                 nn.init.xavier_uniform_(m.weight)
+                nn.init.constant_(m.bias, 0)
         nn.init.normal_(self[-1].weight, 0, 0.01)
         nn.init.constant_(self[-1].bias, 0)
 
@@ -30,7 +31,7 @@ class MLP(nn.Sequential):
 class Custom1x1Subm3d(spconv.SparseConv3d):
 
     def forward(self, input):
-        features = torch.mm(input.features, self.weight.view(self.in_channels, self.out_channels))
+        features = torch.mm(input.features, self.weight.view(self.out_channels, self.in_channels).T)
         if self.bias is not None:
             features += self.bias
         out_tensor = spconv.SparseConvTensor(features, input.indices, input.spatial_shape,

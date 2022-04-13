@@ -47,11 +47,13 @@ class S3DISDataset(CustomDataset):
         piece_2 = inds[1::4]
         piece_3 = inds[2::4]
         piece_4 = inds[3::4]
-        xyz_aug = self.dataAugment(xyz, False, True, True)
+        xyz_aug = self.dataAugment(xyz, False, False, False)
 
         xyz_list = []
         xyz_middle_list = []
         rgb_list = []
+        semantic_label_list = []
+        instance_label_list = []
         for batch, piece in enumerate([piece_1, piece_2, piece_3, piece_4]):
             xyz_middle = xyz_aug[piece]
             xyz = xyz_middle * self.voxel_cfg.scale
@@ -59,9 +61,13 @@ class S3DISDataset(CustomDataset):
             xyz_list.append(np.concatenate([np.full((xyz.shape[0], 1), batch), xyz], 1))
             xyz_middle_list.append(xyz_middle)
             rgb_list.append(rgb[piece])
+            semantic_label_list.append(semantic_label[piece])
+            instance_label_list.append(instance_label[piece])
         xyz = np.concatenate(xyz_list, 0)
         xyz_middle = np.concatenate(xyz_middle_list, 0)
         rgb = np.concatenate(rgb_list, 0)
+        semantic_label = np.concatenate(semantic_label_list, 0)
+        instance_label = np.concatenate(instance_label_list, 0)
         valid_idxs = np.ones(xyz.shape[0], dtype=bool)
         instance_label = self.getCroppedInstLabel(instance_label, valid_idxs)  # TODO remove this
         return xyz, xyz_middle, rgb, semantic_label, instance_label
