@@ -81,6 +81,7 @@ int get_clusters(float *class_numpoint_mean, int *ball_query_idxs,
       }
     }
   }
+  delete[] visited;
   return sumNPoint;
 }
 
