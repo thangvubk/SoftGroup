@@ -3,9 +3,10 @@
 1\) Environment requirements
 
 * Python 3.x
-* Pytorch 1.1 or higher
+* Pytorch 1.11
 * CUDA 9.2 or higher
-* gcc-5.4 or higher
+
+The following installation guild suppose ``python=3.7`` ``pytorch=1.11`` and ``cuda=10.2``. You may change them according to your system.
 
 Create a conda virtual environment and activate it.
 ```
@@ -16,37 +17,24 @@ conda activate softgroup
 
 2\) Clone the repository.
 ```
-git clone https://github.com/thangvubk/SoftGroup.git --recursive
+git clone https://github.com/thangvubk/SoftGroup.git
 ```
 
 
-3\) Install the requirements.
+3\) Install the dependencies.
 ```
-cd SoftGroup
+conda install pytorch cudatoolkit=10.2 -c pytorch
+pip install spconv-cu102
 pip install -r requirements.txt
 ```
 
-4\) Install spconv
+4\) Install build requirement.
 
-
-*  Install the spconv dependencies.
 ```
-sudo apt-get install libboost-all-dev
 sudo apt-get install libsparsehash-dev
 ```
 
-* Compile the spconv library.
+5\) Setup
 ```
-cd SoftGroup/lib/spconv
-python setup.py bdist_wheel
-pip install dist/{WHEEL_FILE_NAME}.whl
-```
-
-
-5\) Compile the external C++ and CUDA ops.
-```
-cd SoftGroup/lib/softgroup_ops
 python setup.py build_ext develop
 ```
-
-Alternative installation guide can be found in [here](https://github.com/hustvl/HAIS).
