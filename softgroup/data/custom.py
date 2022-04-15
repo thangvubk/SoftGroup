@@ -97,7 +97,7 @@ class CustomDataset(Dataset):
                               [-math.sin(theta), math.cos(theta), 0], [0, 0, 1]])
         else:
             # Empirically, slightly rotate the scene can match the results from checkpoint
-            theta = 0.45 * math.pi
+            theta = 0.35 * math.pi
             m = np.matmul(m, [[math.cos(theta), math.sin(theta), 0],
                               [-math.sin(theta), math.cos(theta), 0], [0, 0, 1]])
 
