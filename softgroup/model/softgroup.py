@@ -6,9 +6,9 @@ import torch.distributed as dist
 import torch.nn as nn
 import torch.nn.functional as F
 
-from ..lib.softgroup_ops import (ballquery_batch_p, bfs_cluster, get_mask_iou_on_cluster,
-                                 get_mask_iou_on_pred, get_mask_label, global_avg_pool, sec_max,
-                                 sec_min, voxelization, voxelization_idx)
+from ..ops import (ballquery_batch_p, bfs_cluster, get_mask_iou_on_cluster, get_mask_iou_on_pred,
+                   get_mask_label, global_avg_pool, sec_max, sec_min, voxelization,
+                   voxelization_idx)
 from ..util import cuda_cast, force_fp32, rle_encode
 from .blocks import MLP, ResidualBlock, UBlock
 

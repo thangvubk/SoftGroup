@@ -1,7 +1,7 @@
 import torch
 from torch.autograd import Function
 
-from .. import SOFTGROUP_OP
+from . import ops
 
 
 class GetMaskIoUOnCluster(Function):
@@ -30,8 +30,8 @@ class GetMaskIoUOnCluster(Function):
         assert instance_labels.is_contiguous() and instance_labels.is_cuda
         assert instance_pointnum.is_contiguous() and instance_pointnum.is_cuda
 
-        SOFTGROUP_OP.get_mask_iou_on_cluster(proposals_idx, proposals_offset, instance_labels,
-                                             instance_pointnum, proposals_iou, nInstance, nProposal)
+        ops.get_mask_iou_on_cluster(proposals_idx, proposals_offset, instance_labels,
+                                    instance_pointnum, proposals_iou, nInstance, nProposal)
 
         return proposals_iou
 
@@ -71,9 +71,9 @@ class GetMaskIoUOnPred(Function):
         assert instance_pointnum.is_contiguous() and instance_pointnum.is_cuda
         assert mask_scores_sigmoid.is_contiguous() and mask_scores_sigmoid.is_cuda
 
-        SOFTGROUP_OP.get_mask_iou_on_pred(proposals_idx, proposals_offset, instance_labels,
-                                          instance_pointnum, proposals_iou, nInstance, nProposal,
-                                          mask_scores_sigmoid)
+        ops.get_mask_iou_on_pred(proposals_idx, proposals_offset, instance_labels,
+                                 instance_pointnum, proposals_iou, nInstance, nProposal,
+                                 mask_scores_sigmoid)
 
         return proposals_iou
 
@@ -112,8 +112,8 @@ class GetMaskLabel(Function):
         assert instance_labels.is_contiguous() and instance_labels.is_cuda
         assert instance_cls.is_contiguous() and instance_cls.is_cuda
 
-        SOFTGROUP_OP.get_mask_label(proposals_idx, proposals_offset, instance_labels, instance_cls,
-                                    proposals_iou, nInstance, nProposal, iou_thr, mask_label)
+        ops.get_mask_label(proposals_idx, proposals_offset, instance_labels, instance_cls,
+                           proposals_iou, nInstance, nProposal, iou_thr, mask_label)
 
         return mask_label
 
@@ -146,7 +146,7 @@ class Voxelization_Idx(Function):
         input_map = torch.IntTensor(N).zero_()
         output_map = input_map.new()
 
-        SOFTGROUP_OP.voxelize_idx(coords, output_coords, input_map, output_map, batchsize, mode)
+        ops.voxelize_idx(coords, output_coords, input_map, output_map, batchsize, mode)
         return output_coords, input_map, output_map
 
     @staticmethod
@@ -177,7 +177,7 @@ class Voxelization(Function):
 
         ctx.for_backwards = (map_rule, mode, maxActive, N)
 
-        SOFTGROUP_OP.voxelize_fp(feats, output_feats, map_rule, mode, M, maxActive, C)
+        ops.voxelize_fp(feats, output_feats, map_rule, mode, M, maxActive, C)
         return output_feats
 
     @staticmethod
@@ -187,52 +187,11 @@ class Voxelization(Function):
 
         d_feats = torch.cuda.FloatTensor(N, C).zero_()
 
-        SOFTGROUP_OP.voxelize_bp(d_output_feats.contiguous(), d_feats, map_rule, mode, M, maxActive,
-                                 C)
+        ops.voxelize_bp(d_output_feats.contiguous(), d_feats, map_rule, mode, M, maxActive, C)
         return d_feats, None, None
 
 
 voxelization = Voxelization.apply
-
-
-class PointRecover(Function):
-
-    @staticmethod
-    def forward(ctx, feats, map_rule, nPoint):
-        '''
-        :param ctx:
-        :param feats: cuda float M * C
-        :param map_rule: cuda int M * (maxActive + 1)
-        :param nPoint: int
-        :return: output_feats: cuda float N * C
-        '''
-        assert map_rule.is_contiguous()
-        assert feats.is_contiguous()
-        M, C = feats.size()
-        maxActive = map_rule.size(1) - 1
-
-        output_feats = torch.cuda.FloatTensor(nPoint, C).zero_()
-
-        ctx.for_backwards = (map_rule, maxActive, M)
-
-        SOFTGROUP_OP.point_recover_fp(feats, output_feats, map_rule, M, maxActive, C)
-
-        return output_feats
-
-    @staticmethod
-    def backward(ctx, d_output_feats):
-        map_rule, maxActive, M = ctx.for_backwards
-        N, C = d_output_feats.size()
-
-        d_feats = torch.cuda.FloatTensor(M, C).zero_()
-
-        SOFTGROUP_OP.point_recover_bp(d_output_feats.contiguous(), d_feats, map_rule, M, maxActive,
-                                      C)
-
-        return d_feats, None, None
-
-
-point_recover = PointRecover.apply
 
 
 class BallQueryBatchP(Function):
@@ -259,8 +218,8 @@ class BallQueryBatchP(Function):
         while True:
             idx = torch.cuda.IntTensor(n * meanActive).zero_()
             start_len = torch.cuda.IntTensor(n, 2).zero_()
-            nActive = SOFTGROUP_OP.ballquery_batch_p(coords, batch_idxs, batch_offsets, idx,
-                                                     start_len, n, meanActive, radius)
+            nActive = ops.ballquery_batch_p(coords, batch_idxs, batch_offsets, idx, start_len, n,
+                                            meanActive, radius)
             if nActive <= n * meanActive:
                 break
             meanActive = int(nActive // n + 1)
@@ -296,8 +255,8 @@ class BFSCluster(Function):
         cluster_idxs = ball_query_idxs.new()
         cluster_offsets = ball_query_idxs.new()
 
-        SOFTGROUP_OP.bfs_cluster(cluster_numpoint_mean, ball_query_idxs, start_len, cluster_idxs,
-                                 cluster_offsets, N, threshold, class_id)
+        ops.bfs_cluster(cluster_numpoint_mean, ball_query_idxs, start_len, cluster_idxs,
+                        cluster_offsets, N, threshold, class_id)
 
         return cluster_idxs, cluster_offsets
 
@@ -307,48 +266,6 @@ class BFSCluster(Function):
 
 
 bfs_cluster = BFSCluster.apply
-
-
-class RoiPool(Function):
-
-    @staticmethod
-    def forward(ctx, feats, proposals_offset):
-        '''
-        :param ctx:
-        :param feats: (sumNPoint, C) float
-        :param proposals_offset: (nProposal + 1) int
-        :return: output_feats (nProposal, C) float
-        '''
-        nProposal = proposals_offset.size(0) - 1
-        sumNPoint, C = feats.size()
-
-        assert feats.is_contiguous()
-        assert proposals_offset.is_contiguous()
-
-        output_feats = torch.cuda.FloatTensor(nProposal, C).zero_()
-        output_maxidx = torch.cuda.IntTensor(nProposal, C).zero_()
-
-        SOFTGROUP_OP.roipool_fp(feats, proposals_offset, output_feats, output_maxidx, nProposal, C)
-
-        ctx.for_backwards = (output_maxidx, proposals_offset, sumNPoint)
-
-        return output_feats
-
-    @staticmethod
-    def backward(ctx, d_output_feats):
-        nProposal, C = d_output_feats.size()
-
-        output_maxidx, proposals_offset, sumNPoint = ctx.for_backwards
-
-        d_feats = torch.cuda.FloatTensor(sumNPoint, C).zero_()
-
-        SOFTGROUP_OP.roipool_bp(d_feats, proposals_offset, output_maxidx,
-                                d_output_feats.contiguous(), nProposal, C)
-
-        return d_feats, None
-
-
-roipool = RoiPool.apply
 
 
 class GlobalAvgPool(Function):
@@ -369,7 +286,7 @@ class GlobalAvgPool(Function):
 
         output_feats = torch.cuda.FloatTensor(nProposal, C).zero_()
 
-        SOFTGROUP_OP.global_avg_pool_fp(feats, proposals_offset, output_feats, nProposal, C)
+        ops.global_avg_pool_fp(feats, proposals_offset, output_feats, nProposal, C)
 
         ctx.for_backwards = (proposals_offset, sumNPoint)
 
@@ -383,48 +300,12 @@ class GlobalAvgPool(Function):
 
         d_feats = torch.cuda.FloatTensor(sumNPoint, C).zero_()
 
-        SOFTGROUP_OP.global_avg_pool_bp(d_feats, proposals_offset, d_output_feats.contiguous(),
-                                        nProposal, C)
+        ops.global_avg_pool_bp(d_feats, proposals_offset, d_output_feats.contiguous(), nProposal, C)
 
         return d_feats, None
 
 
 global_avg_pool = GlobalAvgPool.apply
-
-
-class GetIoU(Function):
-
-    @staticmethod
-    def forward(ctx, proposals_idx, proposals_offset, instance_labels, instance_pointnum):
-        '''
-        :param ctx:
-        :param proposals_idx: (sumNPoint), int
-        :param proposals_offset: (nProposal + 1), int
-        :param instance_labels: (N), long, 0~total_nInst-1, -100
-        :param instance_pointnum: (total_nInst), int
-        :return: proposals_iou: (nProposal, total_nInst), float
-        '''
-        nInstance = instance_pointnum.size(0)
-        nProposal = proposals_offset.size(0) - 1
-
-        assert proposals_idx.is_contiguous() and proposals_idx.is_cuda
-        assert proposals_offset.is_contiguous() and proposals_offset.is_cuda
-        assert instance_labels.is_contiguous() and instance_labels.is_cuda
-        assert instance_pointnum.is_contiguous() and instance_pointnum.is_cuda
-
-        proposals_iou = torch.cuda.FloatTensor(nProposal, nInstance).zero_()
-
-        SOFTGROUP_OP.get_iou(proposals_idx, proposals_offset, instance_labels, instance_pointnum,
-                             proposals_iou, nInstance, nProposal)
-
-        return proposals_iou
-
-    @staticmethod
-    def backward(ctx, a=None):
-        return None, None, None, None
-
-
-get_iou = GetIoU.apply
 
 
 class SecMean(Function):
@@ -445,7 +326,7 @@ class SecMean(Function):
 
         out = torch.cuda.FloatTensor(nProposal, C).zero_()
 
-        SOFTGROUP_OP.sec_mean(inp, offsets, out, nProposal, C)
+        ops.sec_mean(inp, offsets, out, nProposal, C)
 
         return out
 
@@ -475,7 +356,7 @@ class SecMin(Function):
 
         out = torch.cuda.FloatTensor(nProposal, C).zero_()
 
-        SOFTGROUP_OP.sec_min(inp, offsets, out, nProposal, C)
+        ops.sec_min(inp, offsets, out, nProposal, C)
 
         return out
 
@@ -505,7 +386,7 @@ class SecMax(Function):
 
         out = torch.cuda.FloatTensor(nProposal, C).zero_()
 
-        SOFTGROUP_OP.sec_max(inp, offsets, out, nProposal, C)
+        ops.sec_max(inp, offsets, out, nProposal, C)
 
         return out
 

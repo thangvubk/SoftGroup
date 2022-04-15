@@ -4,7 +4,7 @@ from glob import glob
 import numpy as np
 import torch
 
-from ..lib.softgroup_ops import voxelization_idx
+from ..ops import voxelization_idx
 from .custom import CustomDataset
 
 

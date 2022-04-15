@@ -8,7 +8,7 @@ import scipy.ndimage
 import torch
 from torch.utils.data import Dataset
 
-from ..lib.softgroup_ops import voxelization_idx
+from ..ops import voxelization_idx
 
 
 class CustomDataset(Dataset):

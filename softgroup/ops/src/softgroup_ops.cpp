@@ -5,7 +5,6 @@
 #include "bfs_cluster/bfs_cluster.cpp"
 #include "cal_iou_and_masklabel/cal_iou_and_masklabel.cpp"
 #include "datatype/datatype.cpp"
-#include "get_iou/get_iou.cpp"
 #include "roipool/roipool.cpp"
 #include "sec_mean/sec_mean.cpp"
 #include "voxelize/voxelize.cpp"
@@ -34,20 +33,4 @@ void voxelize_bp_feat(/* cuda float M*C */ at::Tensor d_output_feats,
                       Int mode, Int nActive, Int maxActive, Int nPlane) {
   voxelize_bp<float>(d_output_feats, d_feats, output_map, mode, nActive,
                      maxActive, nPlane);
-}
-
-void point_recover_fp_feat(/* cuda float M*C */ at::Tensor feats,
-                           /* cuda float N*C */ at::Tensor output_feats,
-                           /* cuda Int M*(maxActive+1) */ at::Tensor idx_map,
-                           Int nActive, Int maxActive, Int nPlane) {
-  point_recover_fp<float>(feats, output_feats, idx_map, nActive, maxActive,
-                          nPlane);
-}
-
-void point_recover_bp_feat(/* cuda float N*C */ at::Tensor d_output_feats,
-                           /* cuda float M*C */ at::Tensor d_feats,
-                           /* cuda Int M*(maxActive+1) */ at::Tensor idx_map,
-                           Int nActive, Int maxActive, Int nPlane) {
-  point_recover_bp<float>(d_output_feats, d_feats, idx_map, nActive, maxActive,
-                          nPlane);
 }

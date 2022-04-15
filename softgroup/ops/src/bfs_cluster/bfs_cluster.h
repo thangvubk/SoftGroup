@@ -7,7 +7,6 @@ All Rights Reserved 2020.
 #ifndef BFS_CLUSTER_H
 #define BFS_CLUSTER_H
 #include <ATen/cuda/CUDAContext.h>
-#include <THC/THC.h>
 #include <torch/serialize/tensor.h>
 
 #include "../datatype/datatype.h"

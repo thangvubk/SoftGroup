@@ -3,7 +3,6 @@
 
 #include "bfs_cluster/bfs_cluster.cu"
 #include "cal_iou_and_masklabel/cal_iou_and_masklabel.cu"
-#include "get_iou/get_iou.cu"
 #include "roipool/roipool.cu"
 #include "sec_mean/sec_mean.cu"
 #include "voxelize/voxelize.cu"

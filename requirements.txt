@@ -1,7 +1,7 @@
 munch
 pandas
 plyfile
-pyyaml==5.4.1
+pyyaml
 scikit-learn
 scipy
 six

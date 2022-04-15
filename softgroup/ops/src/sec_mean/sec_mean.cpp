@@ -8,27 +8,27 @@ All Rights Reserved 2020.
 
 void sec_mean(at::Tensor inp_tensor, at::Tensor offsets_tensor,
               at::Tensor out_tensor, int nProposal, int C) {
-  int *offsets = offsets_tensor.data<int>();
-  float *inp = inp_tensor.data<float>();
-  float *out = out_tensor.data<float>();
+  int *offsets = offsets_tensor.data_ptr<int>();
+  float *inp = inp_tensor.data_ptr<float>();
+  float *out = out_tensor.data_ptr<float>();
 
   sec_mean_cuda(nProposal, C, inp, offsets, out);
 }
 
 void sec_min(at::Tensor inp_tensor, at::Tensor offsets_tensor,
              at::Tensor out_tensor, int nProposal, int C) {
-  int *offsets = offsets_tensor.data<int>();
-  float *inp = inp_tensor.data<float>();
-  float *out = out_tensor.data<float>();
+  int *offsets = offsets_tensor.data_ptr<int>();
+  float *inp = inp_tensor.data_ptr<float>();
+  float *out = out_tensor.data_ptr<float>();
 
   sec_min_cuda(nProposal, C, inp, offsets, out);
 }
 
 void sec_max(at::Tensor inp_tensor, at::Tensor offsets_tensor,
              at::Tensor out_tensor, int nProposal, int C) {
-  int *offsets = offsets_tensor.data<int>();
-  float *inp = inp_tensor.data<float>();
-  float *out = out_tensor.data<float>();
+  int *offsets = offsets_tensor.data_ptr<int>();
+  float *inp = inp_tensor.data_ptr<float>();
+  float *out = out_tensor.data_ptr<float>();
 
   sec_max_cuda(nProposal, C, inp, offsets, out);
 }

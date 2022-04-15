@@ -18,11 +18,11 @@ int ballquery_batch_p(at::Tensor xyz_tensor, at::Tensor batch_idxs_tensor,
                       at::Tensor batch_offsets_tensor, at::Tensor idx_tensor,
                       at::Tensor start_len_tensor, int n, int meanActive,
                       float radius) {
-  const float *xyz = xyz_tensor.data<float>();
-  const int *batch_idxs = batch_idxs_tensor.data<int>();
-  const int *batch_offsets = batch_offsets_tensor.data<int>();
-  int *idx = idx_tensor.data<int>();
-  int *start_len = start_len_tensor.data<int>();
+  const float *xyz = xyz_tensor.data_ptr<float>();
+  const int *batch_idxs = batch_idxs_tensor.data_ptr<int>();
+  const int *batch_offsets = batch_offsets_tensor.data_ptr<int>();
+  int *idx = idx_tensor.data_ptr<int>();
+  int *start_len = start_len_tensor.data_ptr<int>();
 
   cudaStream_t stream = at::cuda::getCurrentCUDAStream();
   int cumsum = ballquery_batch_p_cuda(n, meanActive, radius, xyz, batch_idxs,
@@ -109,9 +109,9 @@ void bfs_cluster(at::Tensor class_numpoint_mean_tensor,
                  at::Tensor cluster_idxs_tensor,
                  at::Tensor cluster_offsets_tensor, const int N,
                  float threshold, const int class_id) {
-  float *class_numpoint_mean = class_numpoint_mean_tensor.data<float>();
-  Int *ball_query_idxs = ball_query_idxs_tensor.data<Int>();
-  int *start_len = start_len_tensor.data<int>();
+  float *class_numpoint_mean = class_numpoint_mean_tensor.data_ptr<float>();
+  Int *ball_query_idxs = ball_query_idxs_tensor.data_ptr<Int>();
+  int *start_len = start_len_tensor.data_ptr<int>();
   ConnectedComponents CCs;
   int sumNPoint = get_clusters(class_numpoint_mean, ball_query_idxs, start_len,
                                N, threshold, CCs, class_id);
@@ -120,7 +120,7 @@ void bfs_cluster(at::Tensor class_numpoint_mean_tensor,
   cluster_offsets_tensor.resize_({nCluster + 1});
   cluster_idxs_tensor.zero_();
   cluster_offsets_tensor.zero_();
-  int *cluster_idxs = cluster_idxs_tensor.data<int>();
-  int *cluster_offsets = cluster_offsets_tensor.data<int>();
+  int *cluster_idxs = cluster_idxs_tensor.data_ptr<int>();
+  int *cluster_offsets = cluster_offsets_tensor.data_ptr<int>();
   fill_cluster_idxs_(CCs, cluster_idxs, cluster_offsets);
 }

@@ -54,19 +54,4 @@ template <typename T>
 void voxelize_bp_cuda(Int nOutputRows, Int maxActive, Int nPlanes,
                       T *d_output_feats, T *d_feats, Int *rules, bool average);
 
-/* ================================== point_recover
- * ================================== */
-template <typename T>
-void point_recover_fp(/* cuda float M*C */ at::Tensor feats,
-                      /* cuda float N*C */ at::Tensor output_feats,
-                      /* cuda Int M*(maxActive+1) */ at::Tensor idx_map,
-                      Int nActive, Int maxActive, Int nPlane);
-
-//
-template <typename T>
-void point_recover_bp(/* cuda float N*C */ at::Tensor d_output_feats,
-                      /* cuda float M*C */ at::Tensor d_feats,
-                      /* cuda Int M*(maxActive+1) */ at::Tensor idx_map,
-                      Int nActive, Int maxActive, Int nPlane);
-
 #endif // VOXELIZE_H
