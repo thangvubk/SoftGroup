@@ -1,9 +1,10 @@
-torch==1.1
-cmake>=3.13.2
+munch
+pandas
 plyfile
-tensorboardX
-pyyaml==5.4.1
+pyyaml
+scikit-learn
 scipy
 six
-pandas
-scikit-learn
+tensorboard
+tensorboardX
+tqdm

@@ -1,10 +1,15 @@
-'''
-Modified from SparseConvNet data preparation: https://github.com/facebookresearch/SparseConvNet/blob/master/examples/ScanNet/prepare_data.py
-'''
+"""Modified from SparseConvNet data preparation: https://github.com/facebookres
+earch/SparseConvNet/blob/master/examples/ScanNet/prepare_data.py."""
 
-import glob, plyfile, numpy as np, multiprocessing as mp, torch, json, argparse
+import argparse
+import glob
+import json
+import multiprocessing as mp
 
+import numpy as np
+import plyfile
 import scannet_util
+import torch
 
 # Map relevant classes to {0,1,...,19}, and ignored classes to -100
 remapper = np.ones(150) * (-100)
@@ -24,7 +29,8 @@ if opt.data_split != 'test':
     files4 = sorted(glob.glob(split + '/*[0-9].aggregation.json'))
     assert len(files) == len(files2)
     assert len(files) == len(files3)
-    assert len(files) == len(files4), "{} {}".format(len(files), len(files4))
+    assert len(files) == len(files4), '{} {}'.format(len(files), len(files4))
+
 
 def f_test(fn):
     print(fn)
@@ -66,14 +72,17 @@ def f(fn):
     with open(fn4) as jsondata:
         d = json.load(jsondata)
         for x in d['segGroups']:
-            if scannet_util.g_raw2scannetv2[x['label']] != 'wall' and scannet_util.g_raw2scannetv2[x['label']] != 'floor':
+            if scannet_util.g_raw2scannetv2[x['label']] != 'wall' and scannet_util.g_raw2scannetv2[
+                    x['label']] != 'floor':
                 instance_segids.append(x['segments'])
                 labels.append(x['label'])
-                assert(x['label'] in scannet_util.g_raw2scannetv2.keys())
-    if(fn == 'val/scene0217_00_vh_clean_2.ply' and instance_segids[0] == instance_segids[int(len(instance_segids) / 2)]):
-        instance_segids = instance_segids[: int(len(instance_segids) / 2)]
+                assert (x['label'] in scannet_util.g_raw2scannetv2.keys())
+    if (fn == 'val/scene0217_00_vh_clean_2.ply'
+            and instance_segids[0] == instance_segids[int(len(instance_segids) / 2)]):
+        instance_segids = instance_segids[:int(len(instance_segids) / 2)]
     check = []
-    for i in range(len(instance_segids)): check += instance_segids[i]
+    for i in range(len(instance_segids)):
+        check += instance_segids[i]
     assert len(np.unique(check)) == len(check)
 
     instance_labels = np.ones(sem_labels.shape[0]) * -100
@@ -83,10 +92,11 @@ def f(fn):
         for segid in segids:
             pointids += segid_to_pointid[segid]
         instance_labels[pointids] = i
-        assert(len(np.unique(sem_labels[pointids])) == 1)
+        assert (len(np.unique(sem_labels[pointids])) == 1)
 
-    torch.save((coords, colors, sem_labels, instance_labels), fn[:-15]+'_inst_nostuff.pth')
-    print('Saving to ' + fn[:-15]+'_inst_nostuff.pth')
+    torch.save((coords, colors, sem_labels, instance_labels), fn[:-15] + '_inst_nostuff.pth')
+    print('Saving to ' + fn[:-15] + '_inst_nostuff.pth')
+
 
 # for fn in files:
 #     f(fn)

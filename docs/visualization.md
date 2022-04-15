@@ -6,7 +6,7 @@ There are two options for visualization:
 
 - Visualization using through a pop-up using open3D (default). Prerequisite: ``pip install open3D==0.8.0``
 
-- Write point clouds to ``.ply`` file then use an visualization application such as [MeshLab](https://www.meshlab.net/) to see the results. Just pass the arg ``--out YOUR_FILE.ply`` to enable this option. 
+- Write point clouds to ``.ply`` file then use an visualization application such as [MeshLab](https://www.meshlab.net/) to see the results. Just pass the arg ``--out YOUR_FILE.ply`` to enable this option.
 
 After inference, run visualization by execute the following command
 
@@ -31,6 +31,3 @@ optional arguments:
                         offset_semantic_pred / instance_gt / instance_pred
   --out OUT             output point cloud file in FILE.ply format
 ```
-
-
-

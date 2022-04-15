@@ -1,4 +1,9 @@
-g_label_names = ['unannotated', 'wall', 'floor', 'chair', 'table', 'desk', 'bed', 'bookshelf', 'sofa', 'sink', 'bathtub', 'toilet', 'curtain', 'counter', 'door', 'window', 'shower curtain', 'refridgerator', 'picture', 'cabinet', 'otherfurniture']
+g_label_names = [
+    'unannotated', 'wall', 'floor', 'chair', 'table', 'desk', 'bed', 'bookshelf', 'sofa', 'sink',
+    'bathtub', 'toilet', 'curtain', 'counter', 'door', 'window', 'shower curtain', 'refridgerator',
+    'picture', 'cabinet', 'otherfurniture'
+]
+
 
 def get_raw2scannetv2_label_map():
     lines = [line.rstrip() for line in open('scannetv2-labels.combined.tsv')]
@@ -19,5 +24,6 @@ def get_raw2scannetv2_label_map():
         else:
             raw2scannet[raw_name] = nyu40_name
     return raw2scannet
+
 
 g_raw2scannetv2 = get_raw2scannetv2_label_map()

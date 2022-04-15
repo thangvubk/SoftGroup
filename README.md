@@ -9,7 +9,7 @@ Author: Thang Vu, Kookhoi Kim, Tung M. Luu, Xuan Thanh Nguyen, and Chang D. Yoo.
 ## Introduction
 
 Existing state-of-the-art 3D instance segmentation methods perform semantic segmentation followed by grouping. The hard predictions are made when performing semantic segmentation such that each point is associated with a single class. However, the errors stemming from hard decision propagate into grouping that results in (1) low overlaps between the predicted instance with the ground truth and (2) substantial false positives. To address the aforementioned problems, this paper proposes a 3D instance segmentation method referred to as SoftGroup by performing bottom-up soft grouping followed by top-down refinement. SoftGroup allows each point to be associated with multiple classes to mitigate the problems stemming from semantic prediction errors and suppresses false positive instances by learning to categorize them as background. Experimental results on different datasets and multiple evaluation metrics demonstrate the efficacy of SoftGroup. Its performance surpasses the strongest prior method by a significant margin of +6.2% on the ScanNet v2 hidden test set and +6.8% on S3DIS Area 5 of AP_50.
-  
+
 ![Learderboard](./docs/leaderboard.png)
 
 ## Feature
@@ -30,7 +30,7 @@ Please refer to [data preparation](dataset/README.md) for preparing the S3DIS an
 | ScanNet v2 | 46.0 |  67.6 |  78.9 |  59.4 |  71.6 | [model](https://drive.google.com/file/d/1Gt1JUXXB-sBtAeuot29crAUnBwcXW7rN/view?usp=sharing) |
 
 ## Training
-We use the checkpoint of [HAIS](https://github.com/hustvl/HAIS) as pretrained backbone. 
+We use the checkpoint of [HAIS](https://github.com/hustvl/HAIS) as pretrained backbone.
 Download the pretrained HAIS model at [here](https://drive.google.com/file/d/1XGNswNrbjm33SwpemYxVEoK4o46EOazd/view) at put it in ``SoftGroup/`` directory.
 ### Training S3DIS dataset
 First, finetune the pretrained HAIS point-wise prediction network (backbone) on S3DIS.
