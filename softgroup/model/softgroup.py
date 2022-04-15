@@ -79,9 +79,10 @@ class SoftGroup(nn.Module):
                 nn.init.constant_(m.bias, 0)
             elif isinstance(m, MLP):
                 m.init_weights()
-        for m in [self.cls_linear, self.iou_score_linear]:
-            nn.init.normal_(m.weight, 0, 0.01)
-            nn.init.constant_(m.bias, 0)
+        if not self.semantic_only:
+            for m in [self.cls_linear, self.iou_score_linear]:
+                nn.init.normal_(m.weight, 0, 0.01)
+                nn.init.constant_(m.bias, 0)
 
     def train(self, mode=True):
         super().train(mode)
@@ -232,6 +233,8 @@ class SoftGroup(nn.Module):
             pt_offset_labels = self.merge_4_parts(pt_offset_labels)
         semantic_preds = semantic_scores.max(1)[1]
         ret = dict(
+            scan_id=scan_ids[0],
+            coords_float=coords_float.cpu().numpy(),
             semantic_preds=semantic_preds.cpu().numpy(),
             semantic_labels=semantic_labels.cpu().numpy(),
             offset_preds=pt_offsets.cpu().numpy(),

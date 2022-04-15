@@ -66,9 +66,14 @@ optimizer:
   type: 'Adam'
   lr: 0.004
 
+save_cfg:
+  semantic: True
+  offset: True
+  instance: True
+
 fp16: False
 epochs: 128
 step_epoch: 50
 save_freq: 4
-pretrain: 'work_dirs/softgroup_scannet_backbone/epoch_120.pth'
+pretrain: './hais_ckpt_spconv2.pth'
 work_dir: ''

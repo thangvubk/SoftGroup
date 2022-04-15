@@ -64,6 +64,11 @@ optimizer:
   type: 'Adam'
   lr: 0.004
 
+save_cfg:
+  semantic: True
+  offset: True
+  instance: True
+
 fp16: False
 epochs: 20
 step_epoch: 0
