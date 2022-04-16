@@ -45,17 +45,17 @@ The default configs suppose training on 4 GPU. If you use smaller number of GPUs
 
 First, finetune the pretrained HAIS point-wise prediction network (backbone) on S3DIS.
 ```
-./tools/dist_train.sh config/softgroup_s3dis_backbone_fold5.yaml 4
+./tools/dist_train.sh configs/softgroup_s3dis_backbone_fold5.yaml 4
 ```
 Then, train model from frozen backbone.
 ```
-./tools/dist_train.sh config/softgroup_s3dis_fold5.yaml 4
+./tools/dist_train.sh configs/softgroup_s3dis_fold5.yaml 4
 ```
 
 ### Training ScanNet V2 dataset
 Training on ScanNet doesnot require finetuning the backbone. Just freeze pretrained backbone and train the model.
 ```
-./tools/dist_train.sh --config config/softgroup_scannet.yaml 4
+./tools/dist_train.sh configs/softgroup_scannet.yaml 4
 ```
 
 ## Inference
