@@ -6,7 +6,7 @@ import torch.distributed as dist
 import torch.nn as nn
 import torch.nn.functional as F
 
-from ..ops import (ballquery_batch_p, bfs_cluster, get_mask_iou_on_cluster, get_mask_iou_on_pred,
+from ..ops import (ball_query, bfs_cluster, get_mask_iou_on_cluster, get_mask_iou_on_pred,
                    get_mask_label, global_avg_pool, sec_max, sec_min, voxelization,
                    voxelization_idx)
 from ..util import cuda_cast, force_fp32, rle_encode
@@ -327,9 +327,9 @@ class SoftGroup(nn.Module):
             batch_offsets_ = self.get_batch_offsets(batch_idxs_, batch_size)
             coords_ = coords_float[object_idxs]
             pt_offsets_ = pt_offsets[object_idxs]
-            idx, start_len = ballquery_batch_p(coords_ + pt_offsets_, batch_idxs_, batch_offsets_,
-                                               radius, mean_active)
-            proposals_idx, proposals_offset = bfs_cluster(class_numpoint_mean, idx.cpu(),
+            neighbor_inds, start_len = ball_query(coords_ + pt_offsets_, batch_idxs_,
+                                                  batch_offsets_, radius, mean_active)
+            proposals_idx, proposals_offset = bfs_cluster(class_numpoint_mean, neighbor_inds.cpu(),
                                                           start_len.cpu(), npoint_thr, class_id)
             proposals_idx[:, 1] = object_idxs[proposals_idx[:, 1].long()].int()
 
