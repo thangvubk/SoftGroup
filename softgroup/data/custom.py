@@ -230,7 +230,7 @@ class CustomDataset(Dataset):
 
         spatial_shape = np.clip(
             coords.max(0)[0][1:].numpy() + 1, self.voxel_cfg.spatial_shape[0], None)
-        voxel_coords, v2p_map, p2v_map = voxelization_idx(coords, 1)
+        voxel_coords, v2p_map, p2v_map = voxelization_idx(coords, batch_id)
         return {
             'scan_ids': scan_ids,
             'coords': coords,
