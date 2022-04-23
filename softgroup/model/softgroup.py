@@ -324,13 +324,33 @@ class SoftGroup(nn.Module):
             if object_idxs.size(0) < self.test_cfg.min_npoint:
                 continue
             batch_idxs_ = batch_idxs[object_idxs]
-            batch_offsets_ = self.get_batch_offsets(batch_idxs_, batch_size)
             coords_ = coords_float[object_idxs]
             pt_offsets_ = pt_offsets[object_idxs]
-            neighbor_inds, start_len = ball_query(coords_ + pt_offsets_, batch_idxs_,
-                                                  batch_offsets_, radius, mean_active)
+            if True:  # TODO test
+                # map to pyramid level
+                num_points = coords_.size(0)
+                if num_points > 1000000:
+                    level = 3
+                elif num_points > 100000:
+                    level = 2
+                else:
+                    level = 1
+                coords_, pt_offsets_, batch_idxs_, l2p_map = self.pyramid_map(
+                    coords_, pt_offsets_, batch_idxs_, level)
+            batch_offsets_ = self.get_batch_offsets(batch_idxs_, batch_size)
+            neighbor_inds, start_len = ball_query(
+                coords_ + pt_offsets_,
+                batch_idxs_,
+                batch_offsets_,
+                radius * level,
+                mean_active,
+                with_octree=True)
             proposals_idx, proposals_offset = bfs_cluster(class_numpoint_mean, neighbor_inds.cpu(),
                                                           start_len.cpu(), npoint_thr, class_id)
+            if True:
+                # map back from pyramid level
+                proposals_idx, proposals_offset = self.pyramid_inverse_map(
+                    proposals_idx, proposals_offset, coords_.size(0), l2p_map)
             proposals_idx[:, 1] = object_idxs[proposals_idx[:, 1].long()].int()
 
             # merge proposals
@@ -343,6 +363,24 @@ class SoftGroup(nn.Module):
                 proposals_offset_list.append(proposals_offset)
         proposals_idx = torch.cat(proposals_idx_list, dim=0)
         proposals_offset = torch.cat(proposals_offset_list)
+        return proposals_idx, proposals_offset
+
+    def pyramid_map(self, coords_float, pt_offsets, batch_idxs, level=1, base_size=0.02):
+        coords = (coords_float / (base_size * level)).long()
+        coords = torch.cat([batch_idxs[:, None], coords], dim=1)
+        coords, l2p_map, p2l_map = voxelization_idx(coords.cpu(), batch_idxs[-1].item() + 1)
+        coords_float = voxelization(coords_float, p2l_map.cuda())
+        pt_offsets = voxelization(pt_offsets, p2l_map.cuda())
+        batch_idxs = coords[:, 0].cuda().int()
+        return coords_float, pt_offsets, batch_idxs, l2p_map
+
+    def pyramid_inverse_map(self, proposals_idx, proposals_offset, num_points, l2p_map):
+        proposals = torch.zeros((proposals_offset.size(0) - 1, num_points), dtype=torch.int)
+        proposals[proposals_idx[:, 0].long(), proposals_idx[:, 1].long()] = 1
+        proposals = proposals[:, l2p_map.cpu().long()]
+        proposals_idx = proposals.nonzero()
+        proposals_offset = torch.cumsum(proposals.sum(1), dim=0).int()
+        proposals_offset = torch.cat([proposals_offset.new_zeros(1), proposals_offset])
         return proposals_idx, proposals_offset
 
     def forward_instance(self, inst_feats, inst_map):

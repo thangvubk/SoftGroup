@@ -10,8 +10,8 @@ model:
     score_thr: 0.2
     radius: 0.04
     mean_active: 300
-    class_numpoint_mean: [1823, 7457, 6189, 7424, 34229, 1724, 5439,
-                          6016, 39796, 5279, 5092, 12210, 10225]
+    class_numpoint_mean: [34229, 39796, 12210, 7457, 5439, 10225, 6016,
+                          1724, 5092, 7424, 5279, 6189, 1823]
     npoint_thr: 0.05  # absolute if class_numpoint == -1, relative if class_numpoint != -1
     ignore_classes: [0, 1]
   instance_voxel_cfg:
@@ -73,5 +73,5 @@ fp16: False
 epochs: 20
 step_epoch: 0
 save_freq: 2
-pretrain: 'work_dirs/softgroup_s3dis_backbone_fold5/latest.pth'
+pretrain: './checkpoint/softgroup_s3dis_spconv2.pth'
 work_dir: ''
