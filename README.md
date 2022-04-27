@@ -10,6 +10,7 @@ Author: Thang Vu, Kookhoi Kim, Tung M. Luu, Xuan Thanh Nguyen, and Chang D. Yoo.
 - 16/Apr/2022: The code base is refactored. Coding is more extendable, readable, and consistent. The following features are supported:
   - Support up-to-date pytorch 1.11 and spconv 2.1.
   - Support distributed and mix precision training. Training time on ScanNet v2 (on 4GPUs) reduces from 4 day to 10 hours.
+  - Faster inference speed, which requires only 288 ms per ScanNet scan on single Titan X.
 
 ## Introduction
 
