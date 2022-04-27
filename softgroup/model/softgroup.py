@@ -21,6 +21,7 @@ class SoftGroup(nn.Module):
                  semantic_only=False,
                  semantic_classes=20,
                  instance_classes=18,
+                 semantic_weight=None,
                  sem2ins_classes=[],
                  ignore_label=-100,
                  grouping_cfg=None,
@@ -34,6 +35,7 @@ class SoftGroup(nn.Module):
         self.semantic_only = semantic_only
         self.semantic_classes = semantic_classes
         self.instance_classes = instance_classes
+        self.semantic_weight = semantic_weight
         self.sem2ins_classes = sem2ins_classes
         self.ignore_label = ignore_label
         self.grouping_cfg = grouping_cfg
@@ -140,8 +142,12 @@ class SoftGroup(nn.Module):
     def point_wise_loss(self, semantic_scores, pt_offsets, semantic_labels, instance_labels,
                         pt_offset_labels):
         losses = {}
+        if self.semantic_weight:
+            weight = torch.tensor(self.semantic_weight, dtype=torch.float, device='cuda')
+        else:
+            weight = None
         semantic_loss = F.cross_entropy(
-            semantic_scores, semantic_labels, ignore_index=self.ignore_label)
+            semantic_scores, semantic_labels, weight=weight, ignore_index=self.ignore_label)
         losses['semantic_loss'] = semantic_loss
 
         pos_inds = instance_labels != self.ignore_label
