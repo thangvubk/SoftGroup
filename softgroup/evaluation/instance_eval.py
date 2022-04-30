@@ -12,7 +12,7 @@ from .instance_eval_util import get_instances
 
 class ScanNetEval(object):
 
-    def __init__(self, class_labels, iou_type=None, use_label=True):
+    def __init__(self, class_labels, min_npoint=None, iou_type=None, use_label=True):
         self.valid_class_labels = class_labels
         self.valid_class_ids = np.arange(len(class_labels)) + 1
         self.id2label = {}
@@ -22,7 +22,10 @@ class ScanNetEval(object):
             self.id2label[self.valid_class_ids[i]] = self.valid_class_labels[i]
 
         self.ious = np.append(np.arange(0.5, 0.95, 0.05), 0.25)
-        self.min_region_sizes = np.array([100])
+        if min_npoint:
+            self.min_region_sizes = np.array([min_npoint])
+        else:
+            self.min_region_sizes = np.array([100])
         self.distance_threshes = np.array([float('inf')])
         self.distance_confs = np.array([-float('inf')])
 

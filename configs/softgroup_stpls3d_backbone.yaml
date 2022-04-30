@@ -4,11 +4,10 @@ model:
   semantic_classes: 15
   instance_classes: 14
   sem2ins_classes: []
-  semantic_only: False
+  semantic_only: True
   semantic_weight: [1.0, 1.0, 44.0, 21.9, 1.8, 25.1, 31.5, 21.8, 24.0, 54.4, 114.4,
                     81.2, 43.6, 9.7, 22.4]
   ignore_label: -100
-  with_coords: False
   grouping_cfg:
     score_thr: 0.2
     radius: 0.9
@@ -21,15 +20,13 @@ model:
     scale: 3
     spatial_shape: 20
   train_cfg:
-    max_proposal_num: 300
+    max_proposal_num: 200
     pos_iou_thr: 0.5
-    match_low_quality: True
-    min_pos_thr: 0.1
   test_cfg:
     x4_split: False
     cls_score_thr: 0.001
     mask_score_thr: -0.5
-    min_npoint: 15
+    min_npoint: 100
   fixed_modules: []
 
 data:
@@ -59,7 +56,7 @@ data:
 
 dataloader:
   train:
-    batch_size: 4
+    batch_size: 12
     num_workers: 4
   test:
     batch_size: 1
@@ -67,18 +64,16 @@ dataloader:
 
 optimizer:
   type: 'Adam'
-  lr: 0.004
+  lr: 0.002  # TODO change to 4 gpu
 
 save_cfg:
   semantic: True
   offset: True
   instance: True
 
-eval_min_npoint: 10
-
 fp16: False
-epochs: 108
+epochs: 20
 step_epoch: 20
 save_freq: 4
-pretrain: './work_dirs/softgroup_stpls3d/latest.pth'
+pretrain: ''
 work_dir: ''

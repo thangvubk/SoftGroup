@@ -24,6 +24,7 @@ class SoftGroup(nn.Module):
                  semantic_weight=None,
                  sem2ins_classes=[],
                  ignore_label=-100,
+                 with_coords=True,
                  grouping_cfg=None,
                  instance_voxel_cfg=None,
                  train_cfg=None,
@@ -38,6 +39,7 @@ class SoftGroup(nn.Module):
         self.semantic_weight = semantic_weight
         self.sem2ins_classes = sem2ins_classes
         self.ignore_label = ignore_label
+        self.with_coords = with_coords
         self.grouping_cfg = grouping_cfg
         self.instance_voxel_cfg = instance_voxel_cfg
         self.train_cfg = train_cfg
@@ -48,9 +50,10 @@ class SoftGroup(nn.Module):
         norm_fn = functools.partial(nn.BatchNorm1d, eps=1e-4, momentum=0.1)
 
         # backbone
+        in_channels = 6 if with_coords else 3
         self.input_conv = spconv.SparseSequential(
             spconv.SubMConv3d(
-                6, channels, kernel_size=3, padding=1, bias=False, indice_key='subm1'))
+                in_channels, channels, kernel_size=3, padding=1, bias=False, indice_key='subm1'))
         block_channels = [channels * (i + 1) for i in range(num_blocks)]
         self.unet = UBlock(block_channels, norm_fn, 2, block, indice_key_id=1)
         self.output_layer = spconv.SparseSequential(norm_fn(channels), nn.ReLU())
@@ -105,7 +108,8 @@ class SoftGroup(nn.Module):
                       semantic_labels, instance_labels, instance_pointnum, instance_cls,
                       pt_offset_labels, spatial_shape, batch_size, **kwargs):
         losses = {}
-        feats = torch.cat((feats, coords_float), 1)
+        if self.with_coords:
+            feats = torch.cat((feats, coords_float), 1)
         voxel_feats = voxelization(feats, p2v_map)
         input = spconv.SparseConvTensor(voxel_feats, voxel_coords.int(), spatial_shape, batch_size)
         semantic_scores, pt_offsets, output_feats = self.forward_backbone(input, v2p_map)
@@ -175,14 +179,30 @@ class SoftGroup(nn.Module):
         fg_instance_cls = instance_cls[fg_inds]
         fg_ious_on_cluster = ious_on_cluster[:, fg_inds]
 
+        # assign proposal to gt idx. -1: negative, 0 -> num_gts - 1: positive
+        num_proposals = fg_ious_on_cluster.size(0)
+        num_gts = fg_ious_on_cluster.size(1)
+        assigned_gt_inds = fg_ious_on_cluster.new_full((num_proposals, ), -1, dtype=torch.long)
+
         # overlap > thr on fg instances are positive samples
-        max_iou, gt_inds = fg_ious_on_cluster.max(1)
+        max_iou, argmax_iou = fg_ious_on_cluster.max(1)
         pos_inds = max_iou >= self.train_cfg.pos_iou_thr
-        pos_gt_inds = gt_inds[pos_inds]
+        assigned_gt_inds[pos_inds] = argmax_iou[pos_inds]
+
+        # allow low-quality proposals with best iou to be as positive sample
+        # in case pos_iou_thr is too high to achieve
+        match_low_quality = getattr(self.train_cfg, 'match_low_quality', False)
+        min_pos_thr = getattr(self.train_cfg, 'min_pos_thr', 0)
+        if match_low_quality:
+            gt_max_iou, gt_argmax_iou = fg_ious_on_cluster.max(0)
+            for i in range(num_gts):
+                if gt_max_iou[i] >= min_pos_thr:
+                    assigned_gt_inds[gt_argmax_iou[i]] = i
 
         # compute cls loss. follow detection convention: 0 -> K - 1 are fg, K is bg
-        labels = fg_instance_cls.new_full((fg_ious_on_cluster.size(0), ), self.instance_classes)
-        labels[pos_inds] = fg_instance_cls[pos_gt_inds]
+        labels = fg_instance_cls.new_full((num_proposals, ), self.instance_classes)
+        pos_inds = assigned_gt_inds >= 0
+        labels[pos_inds] = fg_instance_cls[assigned_gt_inds[pos_inds]]
         cls_loss = F.cross_entropy(cls_scores, labels)
         losses['cls_loss'] = cls_loss
 
@@ -227,7 +247,8 @@ class SoftGroup(nn.Module):
     def forward_test(self, batch_idxs, voxel_coords, p2v_map, v2p_map, coords_float, feats,
                      semantic_labels, instance_labels, pt_offset_labels, spatial_shape, batch_size,
                      scan_ids, **kwargs):
-        feats = torch.cat((feats, coords_float), 1)
+        if self.with_coords:
+            feats = torch.cat((feats, coords_float), 1)
         voxel_feats = voxelization(feats, p2v_map)
         input = spconv.SparseConvTensor(voxel_feats, voxel_coords.int(), spatial_shape, batch_size)
         semantic_scores, pt_offsets, output_feats = self.forward_backbone(
