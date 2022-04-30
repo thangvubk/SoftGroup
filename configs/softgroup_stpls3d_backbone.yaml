@@ -32,7 +32,7 @@ model:
 data:
   train:
     type: 'stpls3d'
-    data_root: 'dataset/Synthetic_v3_InstanceSegmentation'
+    data_root: 'dataset/stpls3d'
     prefix: 'train'
     suffix: '_inst_nostuff.pth'
     training: True
@@ -44,7 +44,7 @@ data:
       min_npoint: 5000
   test:
     type: 'stpls3d'
-    data_root: 'dataset/Synthetic_v3_InstanceSegmentation'
+    data_root: 'dataset/stpls3d'
     prefix: 'val'
     suffix: '_inst_nostuff.pth'
     training: False
@@ -56,7 +56,7 @@ data:
 
 dataloader:
   train:
-    batch_size: 12
+    batch_size: 4
     num_workers: 4
   test:
     batch_size: 1
@@ -64,7 +64,7 @@ dataloader:
 
 optimizer:
   type: 'Adam'
-  lr: 0.002  # TODO change to 4 gpu
+  lr: 0.004
 
 save_cfg:
   semantic: True
