@@ -10,6 +10,7 @@ Author: Thang Vu, Kookhoi Kim, Tung M. Luu, Xuan Thanh Nguyen, and Chang D. Yoo.
 - 16/Apr/2022: The code base is refactored. Coding is more extendable, readable, and consistent. The following features are supported:
   - Support up-to-date pytorch 1.11 and spconv 2.1.
   - Support distributed and mix precision training. Training time on ScanNet v2 (on 4GPUs) reduces from 4 day to 10 hours.
+  - Faster inference speed, which requires only 288 ms per ScanNet scan on single Titan X.
 
 ## Introduction
 
@@ -29,38 +30,38 @@ Please refer to [installation guide](docs/installation.md).
 Please refer to [data preparation](dataset/README.md) for preparing the S3DIS and ScanNet v2 dataset.
 
 ## Pretrained models
+
+
 |   Dataset  |  AP  | AP_50 | AP_25 | Bbox AP_50 | Bbox AP_25 |                                           Download                                          |
 |:----------:|:----:|:-----:|:-----:|:-----:|:-----:|:-------------------------------------------------------------------------------------------:|
-|    S3DIS   | 51.4 |  66.5 |  75.4 |  -    |  -    | [model](https://drive.google.com/file/d/1RodfMTUC-0YWs47kx8lj-i0jbDyM9PO6/view?usp=sharing) |
-| ScanNet v2 | 46.0 |  67.6 |  78.9 |  59.4 |  71.6 | [model](https://drive.google.com/file/d/1Gt1JUXXB-sBtAeuot29crAUnBwcXW7rN/view?usp=sharing) |
+|    S3DIS   | 51.4 |  66.5 |  75.4 |  -    |  -    | [model](https://drive.google.com/file/d/1-f7I6-eIma4OilBON928N6mVcYbhiUFP/view?usp=sharing) |
+| ScanNet v2 | 46.0 |  67.6 |  78.9 |  59.4 |  71.6 | [model](https://drive.google.com/file/d/1XUNRfred9QAEUY__VdmSgZxGQ7peG5ms/view?usp=sharing) |
 
 ## Training
-We use the checkpoint of [HAIS](https://github.com/hustvl/HAIS) as pretrained backbone.
-Download the pretrained HAIS model at [here](https://drive.google.com/file/d/1XGNswNrbjm33SwpemYxVEoK4o46EOazd/view) at put it in ``SoftGroup/`` directory.
+We use the checkpoint of [HAIS](https://github.com/hustvl/HAIS) as pretrained backbone. **We have already converted the checkpoint to work on ``spconv2.x``**. Download the pretrained HAIS-spconv2 model and put it in ``SoftGroup/`` directory.
+
+Converted hais checkpoint: [model](https://drive.google.com/file/d/1FABsCUnxfO_VlItAzDYAwurdfcdK-scs/view?usp=sharing)
 ### Training S3DIS dataset
+The default configs suppose training on 4 GPU. If you use smaller number of GPUs, you should reduce the learning rate linearly. 
+
 First, finetune the pretrained HAIS point-wise prediction network (backbone) on S3DIS.
 ```
-python train.py --config config/softgroup_fold5_backbone_s3dis.yaml
+./tools/dist_train.sh configs/softgroup_s3dis_backbone_fold5.yaml 4
 ```
 Then, train model from frozen backbone.
 ```
-python train.py --config config/softgroup_fold5_default_s3dis.yaml
+./tools/dist_train.sh configs/softgroup_s3dis_fold5.yaml 4
 ```
 
 ### Training ScanNet V2 dataset
 Training on ScanNet doesnot require finetuning the backbone. Just freeze pretrained backbone and train the model.
 ```
-python train.py --config config/softgroup_default_scannet.yaml
+./tools/dist_train.sh configs/softgroup_scannet.yaml 4
 ```
 
 ## Inference
-### Testing for S3DIS dataset.
 ```
-CUDA_VISIBLE_DEVICES=0 python test_s3dis.py --config config/softgroup_fold5_default_s3dis.yaml --pretrain $PATH_TO_PRETRAIN_MODEL$
-```
-### Testing for ScanNet V2 dataset.
-```
-CUDA_VISIBLE_DEVICES=0 python test.py --config config/softgroup_default_scannet.yaml --pretrain $PATH_TO_PRETRAIN_MODEL$
+./tools/dist_test.sh $CONFIG_FILE $CHECKPOINT $NUM_GPU
 ```
 ### Bounding box evaluation of ScanNet V2 dataset.
 We provide script to evaluate detection performance on axis-aligned boxes from predicted/ground-truth instance.
@@ -77,11 +78,6 @@ python eval_det.py
 ## Visualization
 Please refer to [visualization guide](docs/visualization.md) for visualizing ScanNet and S3DIS results.
 
-## TODO
-
-- [x] Benchmark on spconv 2.x for better speed. (In progress)
-- [x] Code refactor (In progress)
-- [ ] Distributed training
 
 ## Citation
 If you find our work helpful for your research. Please consider citing our paper.

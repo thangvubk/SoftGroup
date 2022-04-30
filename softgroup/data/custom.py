@@ -132,9 +132,8 @@ class CustomDataset(Dataset):
         xyz_middle = self.dataAugment(xyz, True, True, True, aug_prob)
         xyz = xyz_middle * self.voxel_cfg.scale
         if np.random.rand() < aug_prob:
-            xyz = self.elastic(xyz, 6 * self.voxel_cfg.scale // 50, 40 * self.voxel_cfg.scale / 50)
-            xyz = self.elastic(xyz, 20 * self.voxel_cfg.scale // 50,
-                               160 * self.voxel_cfg.scale / 50)
+            xyz = self.elastic(xyz, 6, 40.)
+            xyz = self.elastic(xyz, 20, 160.)
         xyz_middle = xyz / self.voxel_cfg.scale
         xyz = xyz - xyz.min(0)
         max_tries = 5
