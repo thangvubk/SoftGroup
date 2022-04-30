@@ -224,45 +224,60 @@ class SoftGroup(nn.Module):
         feats = torch.cat((feats, coords_float), 1)
         voxel_feats = voxelization(feats, p2v_map)
         input = spconv.SparseConvTensor(voxel_feats, voxel_coords.int(), spatial_shape, batch_size)
+
+        # lvl_fusion directly use output point as level 1 for pyramid map for fast inference
+        lvl_fusion = getattr(self.test_cfg, 'lvl_fusion', False)
         semantic_scores, pt_offsets, output_feats = self.forward_backbone(
-            input, v2p_map, x4_split=self.test_cfg.x4_split)
+            input, v2p_map, x4_split=self.test_cfg.x4_split, lvl_fusion=lvl_fusion)
         if self.test_cfg.x4_split:
             coords_float = self.merge_4_parts(coords_float)
             semantic_labels = self.merge_4_parts(semantic_labels)
             instance_labels = self.merge_4_parts(instance_labels)
             pt_offset_labels = self.merge_4_parts(pt_offset_labels)
         semantic_preds = semantic_scores.max(1)[1]
-        ret = dict(
-            scan_id=scan_ids[0],
-            coords_float=coords_float.cpu().numpy(),
-            semantic_preds=semantic_preds.cpu().numpy(),
-            semantic_labels=semantic_labels.cpu().numpy(),
-            offset_preds=pt_offsets.cpu().numpy(),
-            offset_labels=pt_offset_labels.cpu().numpy(),
-            instance_labels=instance_labels.cpu().numpy())
+        ret = self.get_point_wise_results(scan_ids[0], coords_float, semantic_preds,
+                                          semantic_labels, pt_offsets, pt_offset_labels,
+                                          instance_labels, v2p_map, lvl_fusion)
         if not self.semantic_only:
-            proposals_idx, proposals_offset = self.forward_grouping(semantic_scores, pt_offsets,
-                                                                    batch_idxs, coords_float,
-                                                                    self.grouping_cfg)
+            if lvl_fusion:
+                batch_idxs = input.indices[:, 0].int()
+                coords_float = voxelization(coords_float, p2v_map)
+            proposals_idx, proposals_offset = self.forward_grouping(
+                semantic_scores,
+                pt_offsets,
+                batch_idxs,
+                coords_float,
+                self.grouping_cfg,
+                lvl_fusion=lvl_fusion)
             inst_feats, inst_map = self.clusters_voxelization(proposals_idx, proposals_offset,
                                                               output_feats, coords_float,
                                                               **self.instance_voxel_cfg)
             _, cls_scores, iou_scores, mask_scores = self.forward_instance(inst_feats, inst_map)
-            pred_instances = self.get_instances(scan_ids[0], proposals_idx, semantic_scores,
-                                                cls_scores, iou_scores, mask_scores)
+            pred_instances = self.get_instances(
+                scan_ids[0],
+                proposals_idx,
+                semantic_scores,
+                cls_scores,
+                iou_scores,
+                mask_scores,
+                v2p_map=v2p_map,
+                lvl_fusion=lvl_fusion)
             gt_instances = self.get_gt_instances(semantic_labels, instance_labels)
             ret.update(dict(pred_instances=pred_instances, gt_instances=gt_instances))
         return ret
 
-    def forward_backbone(self, input, input_map, x4_split=False):
+    def forward_backbone(self, input, input_map, x4_split=False, lvl_fusion=False):
         if x4_split:
+            assert not lvl_fusion, 'x4_split not support lvl_fusion'
             output_feats = self.forward_4_parts(input, input_map)
             output_feats = self.merge_4_parts(output_feats)
         else:
             output = self.input_conv(input)
             output = self.unet(output)
             output = self.output_layer(output)
-            output_feats = output.features[input_map.long()]
+            output_feats = output.features
+            if not lvl_fusion:
+                output_feats = output_feats[input_map.long()]
 
         semantic_scores = self.semantic_linear(output_feats)
         pt_offsets = self.offset_linear(output_feats)
@@ -305,7 +320,8 @@ class SoftGroup(nn.Module):
                          pt_offsets,
                          batch_idxs,
                          coords_float,
-                         grouping_cfg=None):
+                         grouping_cfg=None,
+                         lvl_fusion=False):
         proposals_idx_list = []
         proposals_offset_list = []
         batch_size = batch_idxs.max() + 1
@@ -314,6 +330,9 @@ class SoftGroup(nn.Module):
         radius = self.grouping_cfg.radius
         mean_active = self.grouping_cfg.mean_active
         npoint_thr = self.grouping_cfg.npoint_thr
+        with_pyramid = getattr(self.grouping_cfg, 'with_pyramid', False)
+        with_octree = getattr(self.grouping_cfg, 'with_octree', False)
+        base_size = getattr(self.grouping_cfg, 'pyramid_base_size', 0.02)
         class_numpoint_mean = torch.tensor(
             self.grouping_cfg.class_numpoint_mean, dtype=torch.float32)
         for class_id in range(self.semantic_classes):
@@ -326,31 +345,27 @@ class SoftGroup(nn.Module):
             batch_idxs_ = batch_idxs[object_idxs]
             coords_ = coords_float[object_idxs]
             pt_offsets_ = pt_offsets[object_idxs]
-            if True:  # TODO test
-                # map to pyramid level
+            if with_pyramid:
                 num_points = coords_.size(0)
-                if num_points > 1000000:
-                    level = 3
-                elif num_points > 100000:
-                    level = 2
-                else:
-                    level = 1
-                coords_, pt_offsets_, batch_idxs_, l2p_map = self.pyramid_map(
-                    coords_, pt_offsets_, batch_idxs_, level)
+                level = self.get_level(num_points)
+                radius = self.grouping_cfg.radius * level
+                if level > 1 or not lvl_fusion:
+                    coords_, pt_offsets_, batch_idxs_, l2p_map = self.pyramid_map(
+                        coords_, pt_offsets_, batch_idxs_, level, base_size)
             batch_offsets_ = self.get_batch_offsets(batch_idxs_, batch_size)
             neighbor_inds, start_len = ball_query(
                 coords_ + pt_offsets_,
                 batch_idxs_,
                 batch_offsets_,
-                radius * level,
+                radius,
                 mean_active,
-                with_octree=False)
+                with_octree=with_octree)
             proposals_idx, proposals_offset = bfs_cluster(class_numpoint_mean, neighbor_inds.cpu(),
                                                           start_len.cpu(), npoint_thr, class_id)
-            if True:
-                # map back from pyramid level
-                proposals_idx, proposals_offset = self.pyramid_inverse_map(
-                    proposals_idx, proposals_offset, coords_.size(0), l2p_map)
+            if with_pyramid:
+                if level > 1 or not lvl_fusion:
+                    proposals_idx, proposals_offset = self.pyramid_inverse_map(
+                        proposals_idx, proposals_offset, coords_.size(0), l2p_map)
             proposals_idx[:, 1] = object_idxs[proposals_idx[:, 1].long()].int()
 
             # merge proposals
@@ -364,6 +379,15 @@ class SoftGroup(nn.Module):
         proposals_idx = torch.cat(proposals_idx_list, dim=0)
         proposals_offset = torch.cat(proposals_offset_list)
         return proposals_idx, proposals_offset
+
+    def get_level(self, num_points):
+        if num_points > 1000000:
+            level = 3
+        elif num_points > 100000:
+            level = 2
+        else:
+            level = 1
+        return level
 
     def pyramid_map(self, coords_float, pt_offsets, batch_idxs, level=1, base_size=0.02):
         coords = (coords_float / (base_size * level)).long()
@@ -399,9 +423,31 @@ class SoftGroup(nn.Module):
 
         return instance_batch_idxs, cls_scores, iou_scores, mask_scores
 
+    @force_fp32(apply_to=('semantic_preds', 'offset_preds'))
+    def get_point_wise_results(self, scan_id, coords_float, semantic_preds, semantic_labels,
+                               offset_preds, offset_labels, instance_labels, v2p_map, lvl_fusion):
+        if lvl_fusion:
+            semantic_preds = semantic_preds[v2p_map.long()]
+            offset_preds = offset_preds[v2p_map.long()]
+        return dict(
+            scan_id=scan_id,
+            coords_float=coords_float.cpu().numpy(),
+            semantic_preds=semantic_preds.cpu().numpy(),
+            semantic_labels=semantic_labels.cpu().numpy(),
+            offset_preds=offset_preds.cpu().numpy(),
+            offset_labels=offset_labels.cpu().numpy(),
+            instance_labels=instance_labels.cpu().numpy())
+
     @force_fp32(apply_to=('semantic_scores', 'cls_scores', 'iou_scores', 'mask_scores'))
-    def get_instances(self, scan_id, proposals_idx, semantic_scores, cls_scores, iou_scores,
-                      mask_scores):
+    def get_instances(self,
+                      scan_id,
+                      proposals_idx,
+                      semantic_scores,
+                      cls_scores,
+                      iou_scores,
+                      mask_scores,
+                      v2p_map=None,
+                      lvl_fusion=False):
         num_instances = cls_scores.size(0)
         num_points = semantic_scores.size(0)
         cls_scores = cls_scores.softmax(1)
@@ -412,6 +458,8 @@ class SoftGroup(nn.Module):
                 cls_pred = cls_scores.new_tensor([i + 1], dtype=torch.long)
                 score_pred = cls_scores.new_tensor([1.], dtype=torch.float32)
                 mask_pred = (semantic_pred == i)[None, :].int()
+                if lvl_fusion:
+                    mask_pred = mask_pred[:, v2p_map.long()]
             else:
                 cls_pred = cls_scores.new_full((num_instances, ), i + 1, dtype=torch.long)
                 cur_cls_scores = cls_scores[:, i]
@@ -428,6 +476,9 @@ class SoftGroup(nn.Module):
                 cls_pred = cls_pred[inds]
                 score_pred = score_pred[inds]
                 mask_pred = mask_pred[inds]
+
+                if lvl_fusion:
+                    mask_pred = mask_pred[:, v2p_map.long()]
 
                 # filter too small instances
                 npoint = mask_pred.sum(1)

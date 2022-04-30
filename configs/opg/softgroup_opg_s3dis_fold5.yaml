@@ -7,6 +7,9 @@ model:
   semantic_only: False
   ignore_label: -100
   grouping_cfg:
+    with_pyramid: True
+    pyramid_base_size: 0.02
+    with_octree: True
     score_thr: 0.2
     radius: 0.04
     mean_active: 300
@@ -21,6 +24,7 @@ model:
     max_proposal_num: 200
     pos_iou_thr: 0.5
   test_cfg:
+    lvl_fusion: True
     x4_split: False
     cls_score_thr: 0.001
     mask_score_thr: -0.5
@@ -73,5 +77,5 @@ fp16: False
 epochs: 40
 step_epoch: 0
 save_freq: 4
-pretrain: './work_dirs/softgroup_s3dis_backbone_fold5_nosample_fixed/epoch_40.pth'
+pretrainn: './work_dirs/softgroup_opg_s3dis_backbone_fold5/epoch_40.pth'
 work_dir: ''
