@@ -28,19 +28,19 @@ class S3DISDataset(CustomDataset):
         # TODO make file load results consistent
         xyz, rgb, semantic_label, instance_label, _, _ = torch.load(filename)
         # subsample data
-        if self.training:
-            N = xyz.shape[0]
-            inds = np.random.choice(N, int(N * 0.25), replace=False)
-            xyz = xyz[inds]
-            rgb = rgb[inds]
-            semantic_label = semantic_label[inds]
-            instance_label = self.getCroppedInstLabel(instance_label, inds)
+        # if self.training:
+        #     N = xyz.shape[0]
+        #     inds = np.random.choice(N, int(N * 0.25), replace=False)
+        #     xyz = xyz[inds]
+        #     rgb = rgb[inds]
+        #     semantic_label = semantic_label[inds]
+        #     instance_label = self.getCroppedInstLabel(instance_label, inds)
         return xyz, rgb, semantic_label, instance_label
 
     def crop(self, xyz, step=64):
         return super().crop(xyz, step=step)
 
-    def transform_test(self, xyz, rgb, semantic_label, instance_label):
+    def transform_test1(self, xyz, rgb, semantic_label, instance_label):
         # devide into 4 piecies
         inds = np.arange(xyz.shape[0])
         piece_1 = inds[::4]
@@ -72,7 +72,7 @@ class S3DISDataset(CustomDataset):
         instance_label = self.getCroppedInstLabel(instance_label, valid_idxs)  # TODO remove this
         return xyz, xyz_middle, rgb, semantic_label, instance_label
 
-    def collate_fn(self, batch):
+    def collate_fn1(self, batch):
         if self.training:
             return super().collate_fn(batch)
 

@@ -157,7 +157,7 @@ class SoftGroup(nn.Module):
     def instance_loss(self, cls_scores, mask_scores, iou_scores, proposals_idx, proposals_offset,
                       instance_labels, instance_pointnum, instance_cls, instance_batch_idxs):
         losses = {}
-        proposals_idx = proposals_idx[:, 1].cuda()
+        proposals_idx = proposals_idx[:, 1].int().cuda()
         proposals_offset = proposals_offset.cuda()
 
         # cal iou of clustered instance
@@ -344,7 +344,7 @@ class SoftGroup(nn.Module):
                 batch_offsets_,
                 radius * level,
                 mean_active,
-                with_octree=True)
+                with_octree=False)
             proposals_idx, proposals_offset = bfs_cluster(class_numpoint_mean, neighbor_inds.cpu(),
                                                           start_len.cpu(), npoint_thr, class_id)
             if True:
@@ -435,12 +435,12 @@ class SoftGroup(nn.Module):
                 cls_pred = cls_pred[inds]
                 score_pred = score_pred[inds]
                 mask_pred = mask_pred[inds]
-            cls_pred_list.append(cls_pred)
-            score_pred_list.append(score_pred)
-            mask_pred_list.append(mask_pred)
-        cls_pred = torch.cat(cls_pred_list).cpu().numpy()
-        score_pred = torch.cat(score_pred_list).cpu().numpy()
-        mask_pred = torch.cat(mask_pred_list).cpu().numpy()
+            cls_pred_list.append(cls_pred.cpu())
+            score_pred_list.append(score_pred.cpu())
+            mask_pred_list.append(mask_pred.cpu())
+        cls_pred = torch.cat(cls_pred_list).numpy()
+        score_pred = torch.cat(score_pred_list).numpy()
+        mask_pred = torch.cat(mask_pred_list).numpy()
 
         instances = []
         for i in range(cls_pred.shape[0]):
