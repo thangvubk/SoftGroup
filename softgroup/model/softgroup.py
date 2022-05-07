@@ -376,8 +376,12 @@ class SoftGroup(nn.Module):
                 mask_pred = (semantic_pred == i)[None, :].int()
             else:
                 cls_pred = cls_scores.new_full((num_instances, ), i + 1, dtype=torch.long)
-                cur_cls_scores = cls_scores[:, i]
-                cur_iou_scores = iou_scores[:, i]
+                if self.instance_classes < self.semantic_classes and len(self.sem2ins_classes) == 0:
+                    cur_cls_scores = cls_scores[:, i+1]
+                    cur_iou_scores = iou_scores[:, i+1]
+                else:
+                    cur_cls_scores = cls_scores[:, i]
+                    cur_iou_scores = iou_scores[:, i]
                 cur_mask_scores = mask_scores[:, i]
                 score_pred = cur_cls_scores * cur_iou_scores.clamp(0, 1)
                 mask_pred = torch.zeros((num_instances, num_points), dtype=torch.int, device='cuda')
