@@ -89,7 +89,7 @@ def validate(epoch, model, val_loader, cfg, logger, writer):
     progress_bar = tqdm(total=len(val_loader) * world_size, disable=not is_main_process())
     val_set = val_loader.dataset
     with torch.no_grad():
-        model = model.eval()
+        model.eval()
         for i, batch in enumerate(val_loader):
             result = model(batch)
             results.append(result)
