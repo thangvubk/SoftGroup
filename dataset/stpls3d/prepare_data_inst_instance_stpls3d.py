@@ -47,7 +47,7 @@ def dataAug(file, semanticKeep):
     return pointsKept
 
 
-def preparePthFiles(files, split, outPutFolder, AugTimes=0):
+def preparePthFiles(files, split, outPutFolder, AugTimes=0, crop_size=50):
     # save the coordinates so that we can merge the data to a single scene
     # after segmentation for visualization
     outJsonPath = os.path.join(outPutFolder, 'coordShift.json')
@@ -83,7 +83,7 @@ def preparePthFiles(files, split, outPutFolder, AugTimes=0):
                 coordShift['globalShift'] = list(points[:, :3].min(0))
             points[:, :3] = points[:, :3] - points[:, :3].min(0)
 
-            blocks = splitPointCloud(points, size=50, stride=50)
+            blocks = splitPointCloud(points, size=crop_size, stride=crop_size)
             for blockNum, block in enumerate(blocks):
                 if (len(block) > 10000):
                     outFilePath = os.path.join(outPutFolder,
@@ -163,8 +163,8 @@ if __name__ == '__main__':
     preparePthFiles(trainFiles, split, trainOutDir, AugTimes=6)
 
     valSplit = [5, 10, 15, 20, 25]
-    split = 'val'
+    split = 'val_250m'
     valFiles = getFiles(filesOri, valSplit)
     valOutDir = split
     os.makedirs(valOutDir, exist_ok=True)
-    preparePthFiles(valFiles, split, valOutDir)
+    preparePthFiles(valFiles, split, valOutDir, crop_size=250)
