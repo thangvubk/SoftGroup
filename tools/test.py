@@ -95,7 +95,7 @@ def main():
     _, world_size = get_dist_info()
     progress_bar = tqdm(total=len(dataloader) * world_size, disable=not is_main_process())
     with torch.no_grad():
-        model = model.eval()
+        model.eval()
         for i, batch in enumerate(dataloader):
             result = model(batch)
             results.append(result)
