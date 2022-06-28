@@ -80,5 +80,5 @@ fp16: False
 epochs: 108
 step_epoch: 20
 save_freq: 4
-pretrain: './work_dirs/softgroup_stpls3d/latest.pth'
+pretrain: './work_dirs/softgroup_stpls3d_backbone/latest.pth'
 work_dir: ''

@@ -7,6 +7,7 @@ model:
   semantic_only: True
   semantic_weight: [1.0, 1.0, 44.0, 21.9, 1.8, 25.1, 31.5, 21.8, 24.0, 54.4, 114.4,
                     81.2, 43.6, 9.7, 22.4]
+  with_coords: False
   ignore_label: -100
   grouping_cfg:
     score_thr: 0.2
