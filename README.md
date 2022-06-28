@@ -21,8 +21,8 @@ Existing state-of-the-art 3D instance segmentation methods perform semantic segm
 
 ## Feature
 * State of the art performance on the [ScanNet benchmark](http://kaldir.vc.in.tum.de/scannet_benchmark/semantic_instance_3d) and S3DIS dataset (3/Mar/2022).
-* High speed of 345 ms per scan on ScanNet dataset, which is comparable with the existing fastest methods ([HAIS](https://github.com/hustvl/HAIS)).
-* Reproducibility code for both ScanNet and S3DIS datasets.
+* High speed of 345 ms per scan on ScanNet dataset, which is comparable with the existing fastest methods ([HAIS](https://github.com/hustvl/HAIS)). Our refactored implementation (this code) further reduce the inference time to 288 ms per scan.
+* Support multiple datasets: ScanNet, S3DIS, STPLS3D.
 
 ## Installation
 Please refer to [installation guide](docs/installation.md).
@@ -43,6 +43,8 @@ Please refer to [data preparation](dataset/README.md) for preparing the S3DIS an
 We use the checkpoint of [HAIS](https://github.com/hustvl/HAIS) as pretrained backbone. **We have already converted the checkpoint to work on ``spconv2.x``**. Download the pretrained HAIS-spconv2 model and put it in ``SoftGroup/`` directory.
 
 Converted hais checkpoint: [model](https://drive.google.com/file/d/1FABsCUnxfO_VlItAzDYAwurdfcdK-scs/view?usp=sharing)
+
+Noted that for fair comparison with implementation in STPLS3D paper, we train SoftGroup on this dataset from scratch without pretrained backbone.
 ### Training S3DIS dataset
 The default configs suppose training on 4 GPU. If you use smaller number of GPUs, you should reduce the learning rate linearly. 
 
@@ -59,6 +61,12 @@ Then, train model from frozen backbone.
 Training on ScanNet doesnot require finetuning the backbone. Just freeze pretrained backbone and train the model.
 ```
 ./tools/dist_train.sh configs/softgroup_scannet.yaml 4
+```
+
+### Training STPLS3D dataset
+```
+./tools/dist_train.sh configs/softgroup_stpls3d_backbone.yaml 4
+./tools/dist_train.sh configs/softgroup_stpls3d.yaml 4
 ```
 
 ## Inference
