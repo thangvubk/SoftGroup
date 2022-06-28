@@ -7,6 +7,7 @@ We provide code for reproducing results of the paper [**SoftGroup for 3D Instanc
 Author: Thang Vu, Kookhoi Kim, Tung M. Luu, Xuan Thanh Nguyen, and Chang D. Yoo.
 
 ## Update
+- 28/Jun/2022: Support STPLS3D dataset. Add custom dataset guideline.
 - 16/Apr/2022: The code base is refactored. Coding is more extendable, readable, and consistent. The following features are supported:
   - Support up-to-date pytorch 1.11 and spconv 2.1.
   - Support distributed and mix precision training. Training time on ScanNet v2 (on 4GPUs) reduces from 4 day to 10 hours.
