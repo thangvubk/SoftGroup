@@ -79,6 +79,8 @@ python eval_det.py
 ## Visualization
 Please refer to [visualization guide](docs/visualization.md) for visualizing ScanNet and S3DIS results.
 
+## Custom dataset
+Please refer to [custom dataset guide](docs/custom_dataset.md).
 
 ## Citation
 If you find our work helpful for your research. Please consider citing our paper.
