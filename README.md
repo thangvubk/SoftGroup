@@ -37,6 +37,7 @@ Please refer to [data preparation](dataset/README.md) for preparing the S3DIS an
 |:----------:|:----:|:-----:|:-----:|:-----:|:-----:|:-------------------------------------------------------------------------------------------:|
 |    S3DIS   | 51.4 |  66.5 |  75.4 |  -    |  -    | [model](https://drive.google.com/file/d/1-f7I6-eIma4OilBON928N6mVcYbhiUFP/view?usp=sharing) |
 | ScanNet v2 | 46.0 |  67.6 |  78.9 |  59.4 |  71.6 | [model](https://drive.google.com/file/d/1XUNRfred9QAEUY__VdmSgZxGQ7peG5ms/view?usp=sharing) |
+|  STPLS3D   | 46.4 |  62.0 |  69.5 |  -    |  -    | [model](https://drive.google.com/file/d/1xCkKLTCYtQmSjXYH_sSg21M_6dcAskd8/view?usp=sharing) |
 
 ## Training
 We use the checkpoint of [HAIS](https://github.com/hustvl/HAIS) as pretrained backbone. **We have already converted the checkpoint to work on ``spconv2.x``**. Download the pretrained HAIS-spconv2 model and put it in ``SoftGroup/`` directory.
