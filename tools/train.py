@@ -108,7 +108,8 @@ def validate(epoch, model, val_loader, cfg, logger, writer):
                 all_gt_insts.append(res['gt_instances'])
         if not cfg.model.semantic_only:
             logger.info('Evaluate instance segmentation')
-            scannet_eval = ScanNetEval(val_set.CLASSES)
+            eval_min_npoint = getattr(cfg, 'eval_min_npoint', None)
+            scannet_eval = ScanNetEval(val_set.CLASSES, eval_min_npoint)
             eval_res = scannet_eval.evaluate(all_pred_insts, all_gt_insts)
             writer.add_scalar('val/AP', eval_res['all_ap'], epoch)
             writer.add_scalar('val/AP_50', eval_res['all_ap_50%'], epoch)

@@ -116,7 +116,8 @@ def main():
                 gt_insts.append(res['gt_instances'])
         if not cfg.model.semantic_only:
             logger.info('Evaluate instance segmentation')
-            scannet_eval = ScanNetEval(dataset.CLASSES)
+            eval_min_npoint = getattr(cfg, 'eval_min_npoint', None)
+            scannet_eval = ScanNetEval(dataset.CLASSES, eval_min_npoint)
             scannet_eval.evaluate(pred_insts, gt_insts)
         logger.info('Evaluate semantic segmentation and offset MAE')
         ignore_label = cfg.model.ignore_label
