@@ -1,9 +1,9 @@
 import argparse
 import os
+import os.path as osp
 from operator import itemgetter
 
 import numpy as np
-import torch
 
 # yapf:disable
 COLOR_DETECTRON2 = np.array(
@@ -139,62 +139,47 @@ SEMANTIC_IDX2NAME = {
 
 
 def get_coords_color(opt):
-    if opt.dataset == 's3dis':
-        assert opt.data_split in ['Area_1', 'Area_2', 'Area_3', 'Area_4', 'Area_5', 'Area_6'],\
-            'data_split for s3dis should be one of [Area_1, Area_2, Area_3, Area_4, Area_5, Area_6]'
-        input_file = os.path.join('dataset', opt.dataset, 'preprocess',
-                                  opt.room_name + '_inst_nostuff.pth')
-        assert os.path.isfile(input_file), 'File not exist - {}.'.format(input_file)
-        xyz, rgb, label, inst_label, _, _ = torch.load(input_file)
-        # update variable to match scannet format
-        opt.data_split = os.path.join('val', opt.data_split)
-    else:
-        input_file = os.path.join('dataset', opt.dataset, opt.data_split,
-                                  opt.room_name + '_inst_nostuff.pth')
-        assert os.path.isfile(input_file), 'File not exist - {}.'.format(input_file)
-        if opt.data_split == 'test':
-            xyz, rgb = torch.load(input_file)
-        else:
-            xyz, rgb, label, inst_label = torch.load(input_file)
 
+    coord_file = osp.join(opt.prediction_path, 'coords', opt.room_name + '.npy')
+    color_file = osp.join(opt.prediction_path, 'colors', opt.room_name + '.npy')
+    label_file = osp.join(opt.prediction_path, 'semantic_label', opt.room_name + '.npy')
+    inst_label_file = osp.join(opt.prediction_path, 'gt_instance', opt.room_name + '.txt')
+    xyz = np.load(coord_file)
+    rgb = np.load(color_file)
+    label = np.load(label_file)
+    inst_label = np.array(open(inst_label_file).read().splitlines(), dtype=int)
+    inst_label = inst_label % 1000 - 1
     rgb = (rgb + 1) * 127.5
 
     if (opt.task == 'semantic_gt'):
-        assert opt.data_split != 'test'
-        label = label.astype(np.int)
+        label = label.astype(int)
         label_rgb = np.zeros(rgb.shape)
         label_rgb[label >= 0] = np.array(
             itemgetter(*SEMANTIC_NAMES[label[label >= 0]])(CLASS_COLOR))
         rgb = label_rgb
 
     elif (opt.task == 'semantic_pred'):
-        assert opt.data_split != 'train'
-        semantic_file = os.path.join(opt.prediction_path, opt.data_split, 'semantic',
-                                     opt.room_name + '.npy')
+        semantic_file = os.path.join(opt.prediction_path, 'semantic_pred', opt.room_name + '.npy')
         assert os.path.isfile(semantic_file), 'No semantic result - {}.'.format(semantic_file)
-        label_pred = np.load(semantic_file).astype(np.int)  # 0~19
+        label_pred = np.load(semantic_file).astype(int)  # 0~19
         label_pred_rgb = np.array(itemgetter(*SEMANTIC_NAMES[label_pred])(CLASS_COLOR))
         rgb = label_pred_rgb
 
     elif (opt.task == 'offset_semantic_pred'):
-        assert opt.data_split != 'train'
-        semantic_file = os.path.join(opt.prediction_path, opt.data_split, 'semantic',
-                                     opt.room_name + '.npy')
+        semantic_file = os.path.join(opt.prediction_path, 'semantic_pred', opt.room_name + '.npy')
         assert os.path.isfile(semantic_file), 'No semantic result - {}.'.format(semantic_file)
-        label_pred = np.load(semantic_file).astype(np.int)  # 0~19
+        label_pred = np.load(semantic_file).astype(int)  # 0~19
         label_pred_rgb = np.array(itemgetter(*SEMANTIC_NAMES[label_pred])(CLASS_COLOR))
         rgb = label_pred_rgb
 
-        offset_file = os.path.join(opt.prediction_path, opt.data_split, 'coords_offsets',
-                                   opt.room_name + '.npy')
+        offset_file = os.path.join(opt.prediction_path, 'offset_pred', opt.room_name + '.npy')
         assert os.path.isfile(offset_file), 'No offset result - {}.'.format(offset_file)
         offset_coords = np.load(offset_file)
-        xyz = offset_coords[:, :3] + offset_coords[:, 3:]
+        xyz += offset_coords
 
     # same color order according to instance pointnum
     elif (opt.task == 'instance_gt'):
-        assert opt.data_split != 'test'
-        inst_label = inst_label.astype(np.int)
+        inst_label = inst_label.astype(int)
         print('Instance number: {}'.format(inst_label.max() + 1))
         inst_label_rgb = np.zeros(rgb.shape)
         ins_num = inst_label.max() + 1
@@ -209,8 +194,7 @@ def get_coords_color(opt):
 
     # same color order according to instance pointnum
     elif (opt.task == 'instance_pred'):
-        assert opt.data_split != 'train'
-        instance_file = os.path.join(opt.prediction_path, opt.data_split, opt.room_name + '.txt')
+        instance_file = os.path.join(opt.prediction_path, 'pred_instance', opt.room_name + '.txt')
         assert os.path.isfile(instance_file), 'No instance result - {}.'.format(instance_file)
         f = open(instance_file, 'r')
         masks = f.readlines()
@@ -219,24 +203,19 @@ def get_coords_color(opt):
 
         ins_num = len(masks)
         ins_pointnum = np.zeros(ins_num)
-        inst_label = -100 * np.ones(rgb.shape[0]).astype(np.int)
+        inst_label = -100 * np.ones(rgb.shape[0]).astype(int)
 
         # sort score such that high score has high priority for visualization
         scores = np.array([float(x[-1]) for x in masks])
         sort_inds = np.argsort(scores)[::-1]
         for i_ in range(len(masks) - 1, -1, -1):
             i = sort_inds[i_]
-            mask_path = os.path.join(opt.prediction_path, opt.data_split, masks[i][0])
+            mask_path = os.path.join(opt.prediction_path, 'pred_instance', masks[i][0])
             assert os.path.isfile(mask_path), mask_path
             if (float(masks[i][2]) < 0.09):
                 continue
-            mask = np.loadtxt(mask_path).astype(np.int)
-            if opt.dataset == 'scannet':
-                print('{} {}: {} pointnum: {}'.format(i,
-                                                      masks[i], SEMANTIC_IDX2NAME[int(masks[i][1])],
-                                                      mask.sum()))
-            else:
-                print('{} {}: pointnum: {}'.format(i, masks[i], mask.sum()))
+            mask = np.array(open(mask_path).read().splitlines(), dtype=int)
+            print('{} {}: pointnum: {}'.format(i, masks[i], mask.sum()))
             ins_pointnum[i] = mask.sum()
             inst_label[mask == 1] = i
         sort_idx = np.argsort(ins_pointnum)[::-1]
@@ -245,10 +224,9 @@ def get_coords_color(opt):
                 _sort_id % len(COLOR_DETECTRON2)]
         rgb = inst_label_pred_rgb
 
-    if opt.data_split != 'test':
-        sem_valid = (label != -100)
-        xyz = xyz[sem_valid]
-        rgb = rgb[sem_valid]
+    sem_valid = (label != -100)
+    xyz = xyz[sem_valid]
+    rgb = rgb[sem_valid]
 
     return xyz, rgb
 
@@ -285,16 +263,7 @@ def write_ply(verts, colors, indices, output_file):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        '--dataset',
-        choices=['scannet', 's3dis'],
-        help='dataset for visualization',
-        default='scannet')
-    parser.add_argument(
-        '--prediction_path',
-        help='path to the prediction results',
-        default='./exp/scannetv2/softgroup/softgroup_default_scannet/result')
-    parser.add_argument(
-        '--data_split', help='train/val/test for scannet or Area_ID for s3dis', default='val')
+        '--prediction_path', help='path to the prediction results', default='./results')
     parser.add_argument('--room_name', help='room_name', default='scene0011_00')
     parser.add_argument(
         '--task',

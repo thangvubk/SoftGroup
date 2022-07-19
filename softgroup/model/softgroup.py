@@ -247,6 +247,7 @@ class SoftGroup(nn.Module):
     def forward_test(self, batch_idxs, voxel_coords, p2v_map, v2p_map, coords_float, feats,
                      semantic_labels, instance_labels, pt_offset_labels, spatial_shape, batch_size,
                      scan_ids, **kwargs):
+        color_feats = feats
         if self.with_coords:
             feats = torch.cat((feats, coords_float), 1)
         voxel_feats = voxelization(feats, p2v_map)
@@ -262,6 +263,7 @@ class SoftGroup(nn.Module):
         ret = dict(
             scan_id=scan_ids[0],
             coords_float=coords_float.cpu().numpy(),
+            color_feats=color_feats.cpu().numpy(),
             semantic_preds=semantic_preds.cpu().numpy(),
             semantic_labels=semantic_labels.cpu().numpy(),
             offset_preds=pt_offsets.cpu().numpy(),

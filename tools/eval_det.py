@@ -272,9 +272,9 @@ if __name__ == '__main__':
     ]
     VALID_CLASS_IDS = [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 16, 24, 28, 33, 34, 36, 39]
     data_path = './dataset/scannetv2/val/'
-    prediction_path = './exp/scannetv2/softgroup/softgroup_default_scannet/result/val'
+    results_path = './results'
     iou_threshold = 0.25  # adjust threshold here
-    instance_paths = glob.glob(osp.join(prediction_path, '*.txt'))
+    instance_paths = glob.glob(osp.join(results_path, 'pred_instance', '*.txt'))
     instance_paths.sort()
 
     def single_process(instance_path):
@@ -288,7 +288,8 @@ if __name__ == '__main__':
         mask_path, labels, scores = list(zip(*pred_infos))
         pred = []
         for mask_path, label, score in pred_infos:
-            mask = np.loadtxt(osp.join(prediction_path, mask_path)).astype(bool)
+            mask_full_path = osp.join(results_path, 'pred_instance', mask_path)
+            mask = np.array(open(mask_full_path).read().splitlines(), dtype=int).astype(bool)
             instance = coords[mask]
             box_min = instance.min(0)
             box_max = instance.max(0)

@@ -14,6 +14,7 @@ from ..ops import voxelization_idx
 class CustomDataset(Dataset):
 
     CLASSES = None
+    NYU_ID = None
 
     def __init__(self,
                  data_root,
