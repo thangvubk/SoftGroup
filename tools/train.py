@@ -13,7 +13,7 @@ from softgroup.evaluation import (ScanNetEval, evaluate_offset_mae, evaluate_sem
                                   evaluate_semantic_miou)
 from softgroup.model import SoftGroup
 from softgroup.util import (AverageMeter, SummaryWriter, build_optimizer, checkpoint_save,
-                            collect_results_gpu, cosine_lr_after_step, get_dist_info,
+                            collect_results_cpu, cosine_lr_after_step, get_dist_info,
                             get_max_memory, get_root_logger, init_dist, is_main_process,
                             is_multiple, is_power2, load_checkpoint)
 from torch.nn.parallel import DistributedDataParallel
@@ -95,7 +95,7 @@ def validate(epoch, model, val_loader, cfg, logger, writer):
             results.append(result)
             progress_bar.update(world_size)
         progress_bar.close()
-        results = collect_results_gpu(results, len(val_set))
+        results = collect_results_cpu(results, len(val_set))
     if is_main_process():
         for res in results:
             all_sem_preds.append(res['semantic_preds'])

@@ -86,7 +86,7 @@ class CustomDataset(Dataset):
         pt_offset_label = pt_mean - xyz
         return instance_num, instance_pointnum, instance_cls, pt_offset_label
 
-    def dataAugment(self, xyz, jitter=False, flip=False, rot=False, prob=1.0):
+    def dataAugment(self, xyz, jitter=False, flip=False, rot=False, scale=False, prob=1.0):
         m = np.eye(3)
         if jitter and np.random.rand() < prob:
             m += np.random.randn(3, 3) * 0.1
@@ -96,12 +96,15 @@ class CustomDataset(Dataset):
             theta = np.random.rand() * 2 * math.pi
             m = np.matmul(m, [[math.cos(theta), math.sin(theta), 0],
                               [-math.sin(theta), math.cos(theta), 0], [0, 0, 1]])
+
         else:
             # Empirically, slightly rotate the scene can match the results from checkpoint
             theta = 0.35 * math.pi
             m = np.matmul(m, [[math.cos(theta), math.sin(theta), 0],
                               [-math.sin(theta), math.cos(theta), 0], [0, 0, 1]])
-
+        if scale and np.random.rand() < prob:
+            scale_factor = np.random.uniform(0.95, 1.05)
+            xyz = xyz * scale_factor
         return np.matmul(xyz, m)
 
     def crop(self, xyz, step=32):
@@ -130,11 +133,12 @@ class CustomDataset(Dataset):
         return instance_label
 
     def transform_train(self, xyz, rgb, semantic_label, instance_label, aug_prob=1.0):
-        xyz_middle = self.dataAugment(xyz, True, True, True, aug_prob)
-        xyz = xyz_middle * self.voxel_cfg.scale
+        xyz_middle = self.dataAugment(xyz, True, True, True, True, aug_prob)
+        xyz = xyz_middle * self.voxel_cfg.scale / 5
         if np.random.rand() < aug_prob:
-            xyz = self.elastic(xyz, 6, 40.)
-            xyz = self.elastic(xyz, 20, 160.)
+            xyz = self.elastic(xyz, 6, 40. / 5)
+            xyz = self.elastic(xyz, 20, 160. / 5)
+        xyz = xyz * 5
         # xyz_middle = xyz / self.voxel_cfg.scale
         xyz = xyz - xyz.min(0)
         max_tries = 5
@@ -154,7 +158,7 @@ class CustomDataset(Dataset):
         return xyz, xyz_middle, rgb, semantic_label, instance_label
 
     def transform_test(self, xyz, rgb, semantic_label, instance_label):
-        xyz_middle = self.dataAugment(xyz, False, False, False)
+        xyz_middle = self.dataAugment(xyz, False, False, False, False)
         xyz = xyz_middle * self.voxel_cfg.scale
         xyz -= xyz.min(0)
         valid_idxs = np.ones(xyz.shape[0], dtype=bool)
@@ -175,7 +179,7 @@ class CustomDataset(Dataset):
         coord_float = torch.from_numpy(xyz_middle)
         feat = torch.from_numpy(rgb).float()
         if self.training:
-            feat += torch.randn(3) * 0.1
+            feat += torch.randn(1) * 0.1
         semantic_label = torch.from_numpy(semantic_label)
         instance_label = torch.from_numpy(instance_label)
         pt_offset_label = torch.from_numpy(pt_offset_label)

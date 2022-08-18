@@ -129,7 +129,6 @@ class UBlock(nn.Module):
             self.blocks_tail = spconv.SparseSequential(blocks_tail)
 
     def forward(self, input):
-
         output = self.blocks(input)
         identity = spconv.SparseConvTensor(output.features, output.indices, output.spatial_shape,
                                            output.batch_size)
@@ -141,3 +140,29 @@ class UBlock(nn.Module):
             output = output.replace_feature(out_feats)
             output = self.blocks_tail(output)
         return output
+
+
+class DDCM(SparseModule):
+
+    def __init__(self, channels, norm_fn):
+        super().__init__()
+        self.conv1 = spconv.SparseSequential(
+            spconv.SubMConv3d(
+                channels, channels, kernel_size=(5, 1, 1), padding=(2, 0, 0), bias=False),
+            norm_fn(channels), nn.Sigmoid())
+        self.conv2 = spconv.SparseSequential(
+            spconv.SubMConv3d(
+                channels, channels, kernel_size=(1, 5, 1), padding=(0, 2, 0), bias=False),
+            norm_fn(channels), nn.Sigmoid())
+        self.conv3 = spconv.SparseSequential(
+            spconv.SubMConv3d(
+                channels, channels, kernel_size=(1, 1, 5), padding=(0, 0, 2), bias=False),
+            norm_fn(channels), nn.Sigmoid())
+
+    def forward(self, input):
+        out1 = self.conv1(input)
+        out2 = self.conv2(input)
+        out3 = self.conv3(input)
+        new_feats = out1.features + out2.features + out3.features
+        out1 = out1.replace_feature(new_feats)
+        return out1

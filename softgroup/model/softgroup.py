@@ -10,7 +10,7 @@ from ..ops import (ballquery_batch_p, bfs_cluster, get_mask_iou_on_cluster, get_
                    get_mask_label, global_avg_pool, sec_max, sec_min, voxelization,
                    voxelization_idx)
 from ..util import cuda_cast, force_fp32, rle_encode
-from .blocks import MLP, ResidualBlock, UBlock
+from .blocks import DDCM, MLP, ResidualBlock, UBlock
 
 
 class SoftGroup(nn.Module):
@@ -50,13 +50,14 @@ class SoftGroup(nn.Module):
         norm_fn = functools.partial(nn.BatchNorm1d, eps=1e-4, momentum=0.1)
 
         # backbone
-        in_channels = 6 if with_coords else 3
+        in_channels = 4 if with_coords else 1
         self.input_conv = spconv.SparseSequential(
             spconv.SubMConv3d(
                 in_channels, channels, kernel_size=3, padding=1, bias=False, indice_key='subm1'))
         block_channels = [channels * (i + 1) for i in range(num_blocks)]
         self.unet = UBlock(block_channels, norm_fn, 2, block, indice_key_id=1)
         self.output_layer = spconv.SparseSequential(norm_fn(channels), nn.ReLU())
+        self.ddcm = DDCM(channels, norm_fn)
 
         # point-wise prediction
         self.semantic_linear = MLP(channels, semantic_classes, norm_fn=norm_fn, num_layers=2)
@@ -160,7 +161,7 @@ class SoftGroup(nn.Module):
         else:
             offset_loss = F.l1_loss(
                 pt_offsets[pos_inds], pt_offset_labels[pos_inds], reduction='sum') / pos_inds.sum()
-        losses['offset_loss'] = offset_loss
+        losses['offset_loss'] = offset_loss * 0
         return losses
 
     @force_fp32(apply_to=('cls_scores', 'mask_scores', 'iou_scores'))
@@ -291,6 +292,7 @@ class SoftGroup(nn.Module):
             output = self.input_conv(input)
             output = self.unet(output)
             output = self.output_layer(output)
+            output = self.ddcm(output)
             output_feats = output.features[input_map.long()]
 
         semantic_scores = self.semantic_linear(output_feats)

@@ -1,0 +1,81 @@
+model:
+  channels: 32
+  num_blocks: 7
+  semantic_classes: 19
+  instance_classes: 19
+  sem2ins_classes: []
+  semantic_only: True
+  ignore_label: -100
+  with_coords: False
+  semantic_weight: [1.   ,  6.362,  1.   , 20.387,  1.   ,  1.363,  1.   , 14.214,
+                    1.263, 25.936, 61.896,  2.293, 85.756, 71.511, 31.596, 35.624,
+                    74.761, 88.722, 96.389]
+  grouping_cfg:
+    score_thr: 0.2
+    radius: 0.04
+    mean_active: 300
+    class_numpoint_mean: [1823, 7457, 6189, 7424, 34229, 1724, 5439,
+                          6016, 39796, 5279, 5092, 12210, 10225]
+    npoint_thr: 0.05  # absolute if class_numpoint == -1, relative if class_numpoint != -1
+    ignore_classes: [0, 1]
+  instance_voxel_cfg:
+    scale: 20
+    spatial_shape: 20
+  train_cfg:
+    max_proposal_num: 200
+    pos_iou_thr: 0.5
+  test_cfg:
+    x4_split: False
+    cls_score_thr: 0.001
+    mask_score_thr: -0.5
+    min_npoint: 100
+  fixed_modules: []
+
+data:
+  train:
+    type: 'kitti'
+    data_root: 'dataset/kitti'
+    prefix: 'train'
+    suffix: '.bin'
+    repeat: 1
+    training: True
+    voxel_cfg:
+      scale: 20
+      spatial_shape: [128, 1536]
+      max_npoint: 80000
+      min_npoint: 5000
+  test:
+    type: 'kitti'
+    data_root: 'dataset/kitti'
+    prefix: 'val'
+    suffix: '.bin'
+    training: False
+    voxel_cfg:
+      scale: 20
+      spatial_shape: [128, 1536]
+      max_npoint: 80000
+      min_npoint: 5000
+
+dataloader:
+  train:
+    batch_size: 4
+    num_workers: 4
+  test:
+    batch_size: 1
+    num_workers: 1
+
+optimizer:
+  type: 'Adam'
+  lr: 0.004
+
+save_cfg:
+  semantic: True
+  offset: True
+  instance: False
+
+fp16: False
+epochs: 100
+step_epoch: 0
+save_freq: 5
+pretrain: ''
+work_dir: ''

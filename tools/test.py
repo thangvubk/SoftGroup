@@ -11,7 +11,7 @@ from softgroup.data import build_dataloader, build_dataset
 from softgroup.evaluation import (ScanNetEval, evaluate_offset_mae, evaluate_semantic_acc,
                                   evaluate_semantic_miou)
 from softgroup.model import SoftGroup
-from softgroup.util import (collect_results_gpu, get_dist_info, get_root_logger, init_dist,
+from softgroup.util import (collect_results_cpu, get_dist_info, get_root_logger, init_dist,
                             is_main_process, load_checkpoint, rle_decode)
 from torch.nn.parallel import DistributedDataParallel
 from tqdm import tqdm
@@ -116,7 +116,7 @@ def main():
             results.append(result)
             progress_bar.update(world_size)
         progress_bar.close()
-        results = collect_results_gpu(results, len(dataset))
+        results = collect_results_cpu(results, len(dataset))
     if is_main_process():
         for res in results:
             scan_ids.append(res['scan_id'])

@@ -1,6 +1,7 @@
 from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler
 
+from .kitti import KITTIDataset
 from .s3dis import S3DISDataset
 from .scannetv2 import ScanNetDataset
 from .stpls3d import STPLS3DDataset
@@ -19,6 +20,8 @@ def build_dataset(data_cfg, logger):
         return ScanNetDataset(**_data_cfg)
     elif data_type == 'stpls3d':
         return STPLS3DDataset(**_data_cfg)
+    elif data_type == 'kitti':
+        return KITTIDataset(**_data_cfg)
     else:
         raise ValueError(f'Unknown {data_type}')
 
