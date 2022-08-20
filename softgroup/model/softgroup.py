@@ -10,7 +10,7 @@ from ..ops import (ballquery_batch_p, bfs_cluster, get_mask_iou_on_cluster, get_
                    get_mask_label, global_avg_pool, sec_max, sec_min, voxelization,
                    voxelization_idx)
 from ..util import cuda_cast, force_fp32, rle_encode
-from .blocks import DDCM, MLP, ResidualBlock, UBlock
+from .blocks import MLP, ResidualBlock, UBlock
 
 
 class SoftGroup(nn.Module):
@@ -57,7 +57,6 @@ class SoftGroup(nn.Module):
         block_channels = [channels * (i + 1) for i in range(num_blocks)]
         self.unet = UBlock(block_channels, norm_fn, 2, block, indice_key_id=1)
         self.output_layer = spconv.SparseSequential(norm_fn(channels), nn.ReLU())
-        self.ddcm = DDCM(channels, norm_fn)
 
         # point-wise prediction
         self.semantic_linear = MLP(channels, semantic_classes, norm_fn=norm_fn, num_layers=2)
@@ -161,7 +160,7 @@ class SoftGroup(nn.Module):
         else:
             offset_loss = F.l1_loss(
                 pt_offsets[pos_inds], pt_offset_labels[pos_inds], reduction='sum') / pos_inds.sum()
-        losses['offset_loss'] = offset_loss * 0
+        losses['offset_loss'] = offset_loss
         return losses
 
     @force_fp32(apply_to=('cls_scores', 'mask_scores', 'iou_scores'))
@@ -292,7 +291,6 @@ class SoftGroup(nn.Module):
             output = self.input_conv(input)
             output = self.unet(output)
             output = self.output_layer(output)
-            output = self.ddcm(output)
             output_feats = output.features[input_map.long()]
 
         semantic_scores = self.semantic_linear(output_feats)

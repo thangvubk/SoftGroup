@@ -60,14 +60,12 @@ class KITTIDataset(CustomDataset):
         data = np.fromfile(filename, dtype=np.float32).reshape(-1, 4)
         xyz, rgb = data[:, :3], data[:, 3:]
         label = np.fromfile(
-            filename.replace('velodyne', 'labels').replace('bin', 'label'), dtype=np.uint32)
-        # semantic and instance laels are stored in 16 low-high bits
+            filename.replace('velodyne', 'labels').replace('bin', 'label'), dtype=np.int32)
         semantic_label = label & 0xFFFF
         semantic_label = np.vectorize(self.learning_map.__getitem__)(semantic_label)
         stuff_inds = semantic_label <= 10
         instance_label = label
         instance_label[stuff_inds] = -100
-        instance_label[instance_label == 0] = -100
         return xyz, rgb, semantic_label, instance_label
 
     def getCroppedInstLabel(self, instance_label, valid_idxs):
@@ -83,3 +81,9 @@ class KITTIDataset(CustomDataset):
             new_id += 1
         instance_label = np.vectorize(ins_label_map.__getitem__)(instance_label)
         return instance_label
+
+    def getInstanceInfo(self, xyz, instance_label, semantic_label):
+        ret = super().getInstanceInfo(xyz, instance_label, semantic_label)
+        instance_num, instance_pointnum, instance_cls, pt_offset_label = ret
+        instance_cls = [x - 11 if x != -100 else x for x in instance_cls]
+        return instance_num, instance_pointnum, instance_cls, pt_offset_label

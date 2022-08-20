@@ -2,9 +2,9 @@ model:
   channels: 32
   num_blocks: 7
   semantic_classes: 19
-  instance_classes: 19
+  instance_classes: 8
   sem2ins_classes: []
-  semantic_only: True
+  semantic_only: False
   ignore_label: -100
   with_coords: False
   # semantic_weight: [1.   ,  6.362,  1.   , 20.387,  1.   ,  1.363,  1.   , 14.214,
@@ -12,12 +12,11 @@ model:
   #                   74.761, 88.722, 96.389]
   grouping_cfg:
     score_thr: 0.2
-    radius: 0.04
+    radius: 0.1
     mean_active: 300
-    class_numpoint_mean: [1823, 7457, 6189, 7424, 34229, 1724, 5439,
-                          6016, 39796, 5279, 5092, 12210, 10225]
+    class_numpoint_mean: [928, 166, 455, 2125, 1001, 214, 370, 194]
     npoint_thr: 0.05  # absolute if class_numpoint == -1, relative if class_numpoint != -1
-    ignore_classes: [0, 1]
+    ignore_classes: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
   instance_voxel_cfg:
     scale: 20
     spatial_shape: 20
@@ -74,8 +73,8 @@ save_cfg:
   instance: False
 
 fp16: False
-epochs: 32
-step_epoch: 32
+epochs: 128
+step_epoch: 0
 save_freq: 4
-pretrain: ''
+pretrain: './work_dirs/softgroup_kitti_backbone_32e_elastic_offset/latest.pth'
 work_dir: ''
