@@ -1,6 +1,10 @@
 ## Visualization
 
-Before visualization, you need to change ``save_semantic``, ``save_pt_offsets``, ``save_instance`` to True in the config file and run the inference to write the output predictions.
+Before visualization, you need to write the output results of inference, for example:
+
+```
+./tools/dist_test.sh $CONFIG $CHECKPOINT $NUM_GPUs --out results/
+```
 
 There are two options for visualization:
 
@@ -8,26 +12,22 @@ There are two options for visualization:
 
 - Write point clouds to ``.ply`` file then use an visualization application such as [MeshLab](https://www.meshlab.net/) to see the results. Just pass the arg ``--out YOUR_FILE.ply`` to enable this option.
 
-After inference, run visualization by execute the following command
+After inference, run visualization by execute the following command. (given that predictions are saved in ``results/`` directory.
 
 ```
-python visualization.py --dataset {} --prediction_path --split {} --scene_name {} --task {} --out {}
+python visualization.py --prediction_path results/ --room_name {} --task {} --out {}
 
-usage: visualization.py [-h] [--dataset {scannet,s3dis}]
-                        [--prediction_path PREDICTION_PATH]
-                        [--data_split DATA_SPLIT] [--room_name ROOM_NAME]
-                        [--task TASK] [--out OUT]
+usage: visualization.py [-h] [--prediction_path PREDICTION_PATH]
+                        [--room_name ROOM_NAME] [--task TASK] [--out OUT]
 
 optional arguments:
-  --dataset {scannet,s3dis}
-                        dataset for visualization
+  -h, --help            show this help message and exit
   --prediction_path PREDICTION_PATH
                         path to the prediction results
-  --data_split DATA_SPLIT
-                        train/val/test for scannet or Area_ID for s3dis
   --room_name ROOM_NAME
                         room_name
-  --task TASK           input / semantic_gt / semantic_pred /
-                        offset_semantic_pred / instance_gt / instance_pred
+  --task TASK           input/semantic_gt/semantic_pred/offset_semantic_pred/i
+                        nstance_gt/instance_pred
   --out OUT             output point cloud file in FILE.ply format
+
 ```
