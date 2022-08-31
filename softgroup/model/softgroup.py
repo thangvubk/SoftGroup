@@ -1,5 +1,7 @@
 import functools
+from collections import OrderedDict
 
+import numpy as np
 import spconv.pytorch as spconv
 import torch
 import torch.distributed as dist
@@ -9,13 +11,14 @@ import torch.nn.functional as F
 from ..ops import (ballquery_batch_p, bfs_cluster, get_mask_iou_on_cluster, get_mask_iou_on_pred,
                    get_mask_label, global_avg_pool, sec_max, sec_min, voxelization,
                    voxelization_idx)
-from ..util import cuda_cast, force_fp32, rle_encode
+from ..util import cuda_cast, force_fp32, rle_decode, rle_encode
 from .blocks import MLP, ResidualBlock, UBlock
 
 
 class SoftGroup(nn.Module):
 
     def __init__(self,
+                 in_channels=3,
                  channels=32,
                  num_blocks=7,
                  semantic_only=False,
@@ -31,6 +34,7 @@ class SoftGroup(nn.Module):
                  test_cfg=None,
                  fixed_modules=[]):
         super().__init__()
+        self.in_channels = in_channels
         self.channels = channels
         self.num_blocks = num_blocks
         self.semantic_only = semantic_only
@@ -50,7 +54,9 @@ class SoftGroup(nn.Module):
         norm_fn = functools.partial(nn.BatchNorm1d, eps=1e-4, momentum=0.1)
 
         # backbone
-        in_channels = 4 if with_coords else 1
+        if with_coords:
+            in_channels += 3
+            self.in_channels += 3
         self.input_conv = spconv.SparseSequential(
             spconv.SubMConv3d(
                 in_channels, channels, kernel_size=3, padding=1, bias=False, indice_key='subm1'))
@@ -170,7 +176,12 @@ class SoftGroup(nn.Module):
             cls_loss = cls_scores.sum() * 0
             mask_loss = mask_scores.sum() * 0
             iou_score_loss = iou_scores.sum() * 0
-            return dict(cls_loss=cls_loss, mask_loss=mask_loss, iou_score_loss=iou_score_loss)
+            return dict(
+                cls_loss=cls_loss,
+                mask_loss=mask_loss,
+                iou_score_loss=iou_score_loss,
+                num_pos=mask_loss,
+                num_neg=mask_loss)
 
         losses = {}
         proposals_idx = proposals_idx[:, 1].cuda()
@@ -237,9 +248,11 @@ class SoftGroup(nn.Module):
         iou_score_loss = F.mse_loss(iou_score_slice, gt_ious, reduction='none')
         iou_score_loss = (iou_score_loss * iou_score_weight).sum() / (iou_score_weight.sum() + 1)
         losses['iou_score_loss'] = iou_score_loss
+        losses['num_pos'] = (labels < self.instance_classes).sum().float()
+        losses['num_neg'] = (labels >= self.instance_classes).sum().float()
         return losses
 
-    def parse_losses(self, losses):
+    def parse_losses1(self, losses):
         loss = sum(v for v in losses.values())
         losses['loss'] = loss
         for loss_name, loss_value in losses.items():
@@ -248,6 +261,48 @@ class SoftGroup(nn.Module):
                 dist.all_reduce(loss_value.div_(dist.get_world_size()))
             losses[loss_name] = loss_value.item()
         return loss, losses
+
+    def parse_losses(self, losses):
+        """Parse the raw outputs (losses) of the network.
+
+        Args:
+            losses (dict): Raw output of the network, which usually contain
+                losses and other necessary information.
+
+        Returns:
+            tuple[Tensor, dict]: (loss, log_vars), loss is the loss tensor \
+                which may be a weighted sum of all losses, log_vars contains \
+                all the variables to be sent to the logger.
+        """
+        log_vars = OrderedDict()
+        for loss_name, loss_value in losses.items():
+            if isinstance(loss_value, torch.Tensor):
+                log_vars[loss_name] = loss_value.mean()
+            elif isinstance(loss_value, list):
+                log_vars[loss_name] = sum(_loss.mean() for _loss in loss_value)
+            else:
+                raise TypeError(f'{loss_name} is not a tensor or list of tensors')
+
+        loss = sum(_value for _key, _value in log_vars.items() if 'loss' in _key)
+
+        # If the loss_vars has different length, GPUs will wait infinitely
+        if dist.is_available() and dist.is_initialized():
+            log_var_length = torch.tensor(len(log_vars), device=loss.device)
+            dist.all_reduce(log_var_length)
+            message = (f'rank {dist.get_rank()}' + f' len(log_vars): {len(log_vars)}' + ' keys: ' +
+                       ','.join(log_vars.keys()))
+            assert log_var_length == len(log_vars) * dist.get_world_size(), \
+                'loss log variables are different across GPUs!\n' + message
+
+        log_vars['loss'] = loss
+        for loss_name, loss_value in log_vars.items():
+            # reduce loss when distributed training
+            if dist.is_available() and dist.is_initialized():
+                loss_value = loss_value.data.clone()
+                dist.all_reduce(loss_value.div_(dist.get_world_size()))
+            log_vars[loss_name] = loss_value.item()
+
+        return loss, log_vars
 
     @cuda_cast
     def forward_test(self, batch_idxs, voxel_coords, p2v_map, v2p_map, coords_float, feats,
@@ -266,15 +321,17 @@ class SoftGroup(nn.Module):
             instance_labels = self.merge_4_parts(instance_labels)
             pt_offset_labels = self.merge_4_parts(pt_offset_labels)
         semantic_preds = semantic_scores.max(1)[1]
-        ret = dict(
-            scan_id=scan_ids[0],
-            coords_float=coords_float.cpu().numpy(),
-            color_feats=color_feats.cpu().numpy(),
-            semantic_preds=semantic_preds.cpu().numpy(),
-            semantic_labels=semantic_labels.cpu().numpy(),
-            offset_preds=pt_offsets.cpu().numpy(),
-            offset_labels=pt_offset_labels.cpu().numpy(),
-            instance_labels=instance_labels.cpu().numpy())
+        ret = dict(scan_id=scan_ids[0])
+        if 'semantic' in self.test_cfg.eval_tasks:
+            ret.upadte(
+                dict(
+                    coords_float=coords_float.cpu().numpy(),
+                    color_feats=color_feats.cpu().numpy(),
+                    semantic_preds=semantic_preds.cpu().numpy(),
+                    semantic_labels=semantic_labels.cpu().numpy(),
+                    offset_preds=pt_offsets.cpu().numpy(),
+                    offset_labels=pt_offset_labels.cpu().numpy(),
+                    instance_labels=instance_labels.cpu().numpy()))
         if not self.semantic_only:
             proposals_idx, proposals_offset = self.forward_grouping(semantic_scores, pt_offsets,
                                                                     batch_idxs, coords_float,
@@ -283,10 +340,16 @@ class SoftGroup(nn.Module):
                                                               output_feats, coords_float,
                                                               **self.instance_voxel_cfg)
             _, cls_scores, iou_scores, mask_scores = self.forward_instance(inst_feats, inst_map)
-            pred_instances = self.get_instances(scan_ids[0], proposals_idx, semantic_scores,
-                                                cls_scores, iou_scores, mask_scores)
-            gt_instances = self.get_gt_instances(semantic_labels, instance_labels)
-            ret.update(dict(pred_instances=pred_instances, gt_instances=gt_instances))
+
+            if 'instance' in self.test_cfg.eval_tasks or 'panoptic' in self.test_cfg.eval_tasks:
+                pred_instances = self.get_instances(scan_ids[0], proposals_idx, semantic_scores,
+                                                    cls_scores, iou_scores, mask_scores)
+            if 'instance' in self.test_cfg.eval_tasks:
+                gt_instances = self.get_gt_instances(semantic_labels, instance_labels)
+                ret.update(dict(pred_instances=pred_instances, gt_instances=gt_instances))
+            if 'panoptic' in self.test_cfg.eval_tasks:
+                panoptic_preds = self.panoptic_fusion(semantic_preds.cpu().numpy(), pred_instances)
+                ret.update(panoptic_preds=panoptic_preds)
         return ret
 
     def forward_backbone(self, input, input_map, x4_split=False):
@@ -351,6 +414,7 @@ class SoftGroup(nn.Module):
         npoint_thr = self.grouping_cfg.npoint_thr
         class_numpoint_mean = torch.tensor(
             self.grouping_cfg.class_numpoint_mean, dtype=torch.float32)
+        assert class_numpoint_mean.size(0) == self.semantic_classes
         for class_id in range(self.semantic_classes):
             if class_id in self.grouping_cfg.ignore_classes:
                 continue
@@ -397,7 +461,6 @@ class SoftGroup(nn.Module):
         feats = self.global_pool(feats)
         cls_scores = self.cls_linear(feats)
         iou_scores = self.iou_score_linear(feats)
-
         return instance_batch_idxs, cls_scores, iou_scores, mask_scores
 
     @force_fp32(apply_to=('semantic_scores', 'cls_scores', 'iou_scores', 'mask_scores'))
@@ -456,6 +519,46 @@ class SoftGroup(nn.Module):
             pred['pred_mask'] = rle_encode(mask_pred[i])
             instances.append(pred)
         return instances
+
+    def panoptic_fusion(self, semantic_preds, instance_preds):
+        cls_offset = self.semantic_classes - self.instance_classes - 1
+        panoptic_cls = semantic_preds.copy().astype(np.uint32)
+        panoptic_ids = np.zeros_like(semantic_preds).astype(np.uint32)
+
+        # higher score has higher fusion priority
+        scores = [x['conf'] for x in instance_preds]
+        score_inds = np.argsort(scores)[::-1]
+        prev_paste = np.zeros_like(semantic_preds, dtype=bool)
+        panoptic_id = 1
+        for i in score_inds:
+            instance = instance_preds[i]
+            cls = instance['label_id']
+            mask = rle_decode(instance['pred_mask']).astype(bool)
+
+            # check overlap with pasted instances
+            intersect = (mask * prev_paste).sum()
+            if intersect / (mask.sum() + 1e-5) > self.test_cfg.panoptic_skip_iou:
+                continue
+
+            paste = mask * (~prev_paste)
+            panoptic_cls[paste] = cls + cls_offset
+            panoptic_ids[paste] = panoptic_id
+            prev_paste[paste] = 1
+            panoptic_id += 1
+        panoptic_cls_new = np.zeros_like(panoptic_cls)
+        panoptic_cls_new[panoptic_cls < 11] = panoptic_cls[panoptic_cls < 11] + 9
+        panoptic_cls_new[panoptic_cls >= 11] = panoptic_cls[panoptic_cls >= 11] - 10
+
+        with open('./dataset/kitti/semantic-kitti.yaml', 'r') as f:
+            import yaml
+            semkittiyaml = yaml.safe_load(f)
+            learning_map_inv = semkittiyaml['learning_map_inv']
+            panoptic_cls_new = np.vectorize(learning_map_inv.__getitem__)(panoptic_cls_new)
+
+        # encode panoptic results
+        panoptic_preds = (panoptic_cls_new & 0xFFFF) | (panoptic_ids << 16)
+        panoptic_preds = panoptic_preds.astype(np.uint32)
+        return panoptic_preds
 
     def get_gt_instances(self, semantic_labels, instance_labels):
         """Get gt instances for evaluation."""

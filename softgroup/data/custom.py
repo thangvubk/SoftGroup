@@ -75,7 +75,8 @@ class CustomDataset(Dataset):
         pt_mean = np.ones((xyz.shape[0], 3), dtype=np.float32) * -100.0
         instance_pointnum = []
         instance_cls = []
-        instance_num = int(instance_label.max()) + 1
+        # max(instance_num, 0) to support instance_label with no valid instance_id
+        instance_num = max(int(instance_label.max()) + 1, 0)
         for i_ in range(instance_num):
             inst_idx_i = np.where(instance_label == i_)
             xyz_i = xyz[inst_idx_i]
@@ -133,12 +134,11 @@ class CustomDataset(Dataset):
         return instance_label
 
     def transform_train(self, xyz, rgb, semantic_label, instance_label, aug_prob=1.0):
-        xyz_middle = self.dataAugment(xyz, True, True, True, True, aug_prob)
-        xyz = xyz_middle * self.voxel_cfg.scale / 5
+        xyz_middle = self.dataAugment(xyz, True, True, True, aug_prob)
+        xyz = xyz_middle * self.voxel_cfg.scale
         if np.random.rand() < aug_prob:
-            xyz = self.elastic(xyz, 6, 40. / 5)
-            xyz = self.elastic(xyz, 20, 160. / 5)
-        xyz = xyz * 5
+            xyz = self.elastic(xyz, 6, 40.)
+            xyz = self.elastic(xyz, 20, 160.)
         # xyz_middle = xyz / self.voxel_cfg.scale
         xyz = xyz - xyz.min(0)
         max_tries = 5
@@ -179,7 +179,7 @@ class CustomDataset(Dataset):
         coord_float = torch.from_numpy(xyz_middle)
         feat = torch.from_numpy(rgb).float()
         if self.training:
-            feat += torch.randn(1) * 0.1
+            feat += torch.randn(feat.size(1)) * 0.1
         semantic_label = torch.from_numpy(semantic_label)
         instance_label = torch.from_numpy(instance_label)
         pt_offset_label = torch.from_numpy(pt_offset_label)

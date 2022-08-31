@@ -1,4 +1,5 @@
 model:
+  in_channels: 1
   channels: 32
   num_blocks: 7
   semantic_classes: 19
@@ -7,15 +8,13 @@ model:
   semantic_only: False
   ignore_label: -100
   with_coords: False
-  # semantic_weight: [1.   ,  6.362,  1.   , 20.387,  1.   ,  1.363,  1.   , 14.214,
-  #                   1.263, 25.936, 61.896,  2.293, 85.756, 71.511, 31.596, 35.624,
-  #                   74.761, 88.722, 96.389]
   grouping_cfg:
     score_thr: 0.2
     radius: 0.1
     mean_active: 300
-    class_numpoint_mean: [928, 166, 455, 2125, 1001, 214, 370, 194]
-    npoint_thr: 0.05  # absolute if class_numpoint == -1, relative if class_numpoint != -1
+    class_numpoint_mean: [-1., -1., -1., -1., -1., -1., -1., -1., -1., -1., -1.,
+                          -1., -1., -1., -1., -1., -1., -1., -1.]
+    npoint_thr: 10  # absolute if class_numpoint == -1, relative if class_numpoint != -1
     ignore_classes: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
   instance_voxel_cfg:
     scale: 20
@@ -25,9 +24,11 @@ model:
     pos_iou_thr: 0.5
   test_cfg:
     x4_split: False
-    cls_score_thr: 0.001
+    cls_score_thr: 0.3
     mask_score_thr: -0.5
-    min_npoint: 100
+    min_npoint: 25
+    eval_tasks: ['instance']
+    panoptic_skip_iou: 0.5
   fixed_modules: []
 
 data:
@@ -72,9 +73,12 @@ save_cfg:
   offset: True
   instance: False
 
+eval_min_npoint: 50
+
+clip_grad_norm: 35
 fp16: False
 epochs: 128
 step_epoch: 0
 save_freq: 4
-pretrain: './work_dirs/softgroup_kitti_backbone_32e_elastic_offset/latest.pth'
+pretrain: './work_dirs/softgroup_kitti_backbone_100e/latest.pth'
 work_dir: ''

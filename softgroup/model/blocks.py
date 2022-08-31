@@ -129,6 +129,7 @@ class UBlock(nn.Module):
             self.blocks_tail = spconv.SparseSequential(blocks_tail)
 
     def forward(self, input):
+
         output = self.blocks(input)
         identity = spconv.SparseConvTensor(output.features, output.indices, output.spatial_shape,
                                            output.batch_size)
