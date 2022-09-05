@@ -14,7 +14,7 @@ model:
     mean_active: 300
     class_numpoint_mean: [-1., -1., -1., -1., -1., -1., -1., -1., -1., -1., -1.,
                           -1., -1., -1., -1., -1., -1., -1., -1.]
-    npoint_thr: 10  # absolute if class_numpoint == -1, relative if class_numpoint != -1
+    npoint_thr: 5  # absolute if class_numpoint == -1, relative if class_numpoint != -1
     ignore_classes: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
   instance_voxel_cfg:
     scale: 20
@@ -27,7 +27,7 @@ model:
     cls_score_thr: 0.3
     mask_score_thr: -0.5
     min_npoint: 25
-    eval_tasks: ['instance']
+    eval_tasks: ['instance', 'panoptic']
     panoptic_skip_iou: 0.5
   fixed_modules: []
 

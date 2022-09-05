@@ -88,6 +88,18 @@ def save_gt_instances(root, name, scan_ids, gt_insts, nyu_id=None):
     pool.join()
 
 
+def save_panoptic_single(path, arr):
+    arr.tofile(path)
+
+
+def save_panoptic(root, name, scan_ids, arrs):
+    root = osp.join(root, name)
+    os.makedirs(root, exist_ok=True)
+    paths = [osp.join(root, f'{i}.label') for i in scan_ids]
+    pool = mp.Pool()
+    pool.starmap(save_panoptic_single, zip(paths, arrs))
+
+
 def main():
     args = get_args()
     cfg_txt = open(args.config, 'r').read()
@@ -107,6 +119,7 @@ def main():
     results = []
     scan_ids, coords, colors, sem_preds, sem_labels = [], [], [], [], []
     offset_preds, offset_labels, inst_labels, pred_insts, gt_insts = [], [], [], [], []
+    panoptic_preds = []
     _, world_size = get_dist_info()
     progress_bar = tqdm(total=len(dataloader) * world_size, disable=not is_main_process())
     with torch.no_grad():
@@ -119,6 +132,7 @@ def main():
         results = collect_results_cpu(results, len(dataset))
     if is_main_process():
         for res in results:
+            panoptic_preds.append(res['panoptic_preds'])
             scan_ids.append(res['scan_id'])
             coords.append(res['coords_float'])
             colors.append(res['color_feats'])
@@ -145,18 +159,19 @@ def main():
         if not args.out:
             return
         logger.info('Save results')
-        save_npy(args.out, 'coords', scan_ids, coords)
-        save_npy(args.out, 'colors', scan_ids, colors)
-        if cfg.save_cfg.semantic:
-            save_npy(args.out, 'semantic_pred', scan_ids, sem_preds)
-            save_npy(args.out, 'semantic_label', scan_ids, sem_labels)
-        if cfg.save_cfg.offset:
-            save_npy(args.out, 'offset_pred', scan_ids, offset_preds)
-            save_npy(args.out, 'offset_label', scan_ids, offset_labels)
-        if cfg.save_cfg.instance:
-            nyu_id = dataset.NYU_ID
-            save_pred_instances(args.out, 'pred_instance', scan_ids, pred_insts, nyu_id)
-            save_gt_instances(args.out, 'gt_instance', scan_ids, gt_insts, nyu_id)
+        save_panoptic(args.out, 'sequences/08/predictions', scan_ids, panoptic_preds)
+        # save_npy(args.out, 'coords', scan_ids, coords)
+        # save_npy(args.out, 'colors', scan_ids, colors)
+        # if cfg.save_cfg.semantic:
+        #     save_npy(args.out, 'semantic_pred', scan_ids, sem_preds)
+        #     save_npy(args.out, 'semantic_label', scan_ids, sem_labels)
+        # if cfg.save_cfg.offset:
+        #     save_npy(args.out, 'offset_pred', scan_ids, offset_preds)
+        #     save_npy(args.out, 'offset_label', scan_ids, offset_labels)
+        # if cfg.save_cfg.instance:
+        #     nyu_id = dataset.NYU_ID
+        #     save_pred_instances(args.out, 'pred_instance', scan_ids, pred_insts, nyu_id)
+        #     save_gt_instances(args.out, 'gt_instance', scan_ids, gt_insts, nyu_id)
 
 
 if __name__ == '__main__':

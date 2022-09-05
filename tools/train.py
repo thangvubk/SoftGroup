@@ -56,6 +56,8 @@ def train(epoch, model, optimizer, scaler, train_loader, cfg, logger, writer):
         # backward
         optimizer.zero_grad()
         scaler.scale(loss).backward()
+        if cfg.get('clip_grad_norm', None):
+            torch.nn.utils.clip_grad_norm_(model.parameters(), cfg.clip_grad_norm)
         scaler.step(optimizer)
         scaler.update()
 
