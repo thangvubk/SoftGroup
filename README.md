@@ -73,6 +73,10 @@ Training on ScanNet doesnot require finetuning the backbone. Just freeze pretrai
 ```
 ./tools/dist_test.sh $CONFIG_FILE $CHECKPOINT $NUM_GPU
 ```
+
+### Inference without label
+For example, on scannet test split, just change [``prefix``](https://github.com/thangvubk/SoftGroup/blob/cf88d9be41ae83a70f9100856a3ca15ee4ddcee9/configs/softgroup_scannet.yaml#L49) to ``test`` and [``with_label``](https://github.com/thangvubk/SoftGroup/blob/cf88d9be41ae83a70f9100856a3ca15ee4ddcee9/configs/softgroup_scannet.yaml#L52) to ``False`` before running inference. 
+
 ### Bounding box evaluation of ScanNet V2 dataset.
 We provide script to evaluate detection performance on axis-aligned boxes from predicted/ground-truth instance.
 - Step 1: Change ``save_instance`` to ``True`` in [config file](https://github.com/thangvubk/SoftGroup/blob/99ffb9756e553e0edfb2c43e2ab6a6f646892bb5/config/softgroup_default_scannet.yaml#L72).
