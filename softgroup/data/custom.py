@@ -22,6 +22,7 @@ class CustomDataset(Dataset):
                  suffix,
                  voxel_cfg=None,
                  training=True,
+                 with_label=True,
                  repeat=1,
                  logger=None):
         self.data_root = data_root
@@ -29,6 +30,7 @@ class CustomDataset(Dataset):
         self.suffix = suffix
         self.voxel_cfg = voxel_cfg
         self.training = training
+        self.with_label = with_label
         self.repeat = repeat
         self.logger = logger
         self.mode = 'train' if training else 'test'

@@ -323,7 +323,7 @@ class SoftGroup(nn.Module):
         semantic_preds = semantic_scores.max(1)[1]
         ret = dict(scan_id=scan_ids[0])
         if 'semantic' in self.test_cfg.eval_tasks:
-            ret.upadte(
+            ret.update(
                 dict(
                     coords_float=coords_float.cpu().numpy(),
                     color_feats=color_feats.cpu().numpy(),
@@ -333,15 +333,14 @@ class SoftGroup(nn.Module):
                     offset_labels=pt_offset_labels.cpu().numpy(),
                     instance_labels=instance_labels.cpu().numpy()))
         if not self.semantic_only:
-            proposals_idx, proposals_offset = self.forward_grouping(semantic_scores, pt_offsets,
-                                                                    batch_idxs, coords_float,
-                                                                    self.grouping_cfg)
-            inst_feats, inst_map = self.clusters_voxelization(proposals_idx, proposals_offset,
-                                                              output_feats, coords_float,
-                                                              **self.instance_voxel_cfg)
-            _, cls_scores, iou_scores, mask_scores = self.forward_instance(inst_feats, inst_map)
-
             if 'instance' in self.test_cfg.eval_tasks or 'panoptic' in self.test_cfg.eval_tasks:
+                proposals_idx, proposals_offset = self.forward_grouping(
+                    semantic_scores, pt_offsets, batch_idxs, coords_float, self.grouping_cfg)
+                inst_feats, inst_map = self.clusters_voxelization(proposals_idx, proposals_offset,
+                                                                  output_feats, coords_float,
+                                                                  **self.instance_voxel_cfg)
+                _, cls_scores, iou_scores, mask_scores = self.forward_instance(inst_feats, inst_map)
+
                 pred_instances = self.get_instances(scan_ids[0], proposals_idx, semantic_scores,
                                                     cls_scores, iou_scores, mask_scores)
             if 'instance' in self.test_cfg.eval_tasks:

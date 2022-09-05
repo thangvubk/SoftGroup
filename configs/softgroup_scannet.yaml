@@ -27,6 +27,7 @@ model:
     cls_score_thr: 0.001
     mask_score_thr: -0.5
     min_npoint: 100
+    eval_tasks: ['semantic', 'instance']
   fixed_modules: ['input_conv', 'unet', 'output_layer', 'semantic_linear', 'offset_linear']
 
 data:
@@ -48,6 +49,7 @@ data:
     prefix: 'val'
     suffix: '_inst_nostuff.pth'
     training: False
+    with_label: True
     voxel_cfg:
       scale: 50
       spatial_shape: [128, 512]
@@ -65,11 +67,6 @@ dataloader:
 optimizer:
   type: 'Adam'
   lr: 0.004
-
-save_cfg:
-  semantic: True
-  offset: True
-  instance: True
 
 fp16: False
 epochs: 128
