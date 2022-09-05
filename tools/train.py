@@ -88,6 +88,7 @@ def validate(epoch, model, val_loader, cfg, logger, writer):
     _, world_size = get_dist_info()
     progress_bar = tqdm(total=len(val_loader) * world_size, disable=not is_main_process())
     val_set = val_loader.dataset
+    eval_tasks = cfg.model.test_cfg.eval_tasks
     with torch.no_grad():
         model.eval()
         for i, batch in enumerate(val_loader):
@@ -98,15 +99,16 @@ def validate(epoch, model, val_loader, cfg, logger, writer):
         results = collect_results_gpu(results, len(val_set))
     if is_main_process():
         for res in results:
-            all_sem_preds.append(res['semantic_preds'])
-            all_sem_labels.append(res['semantic_labels'])
-            all_offset_preds.append(res['offset_preds'])
-            all_offset_labels.append(res['offset_labels'])
-            all_inst_labels.append(res['instance_labels'])
-            if not cfg.model.semantic_only:
+            if 'semantic' in eval_tasks:
+                all_sem_preds.append(res['semantic_preds'])
+                all_sem_labels.append(res['semantic_labels'])
+                all_offset_preds.append(res['offset_preds'])
+                all_offset_labels.append(res['offset_labels'])
+                all_inst_labels.append(res['instance_labels'])
+            if 'instance' in eval_tasks:
                 all_pred_insts.append(res['pred_instances'])
                 all_gt_insts.append(res['gt_instances'])
-        if not cfg.model.semantic_only:
+        if 'instance' in eval_tasks:
             logger.info('Evaluate instance segmentation')
             eval_min_npoint = getattr(cfg, 'eval_min_npoint', None)
             scannet_eval = ScanNetEval(val_set.CLASSES, eval_min_npoint)
@@ -116,14 +118,17 @@ def validate(epoch, model, val_loader, cfg, logger, writer):
             writer.add_scalar('val/AP_25', eval_res['all_ap_25%'], epoch)
             logger.info('AP: {:.3f}. AP_50: {:.3f}. AP_25: {:.3f}'.format(
                 eval_res['all_ap'], eval_res['all_ap_50%'], eval_res['all_ap_25%']))
-        logger.info('Evaluate semantic segmentation and offset MAE')
-        miou = evaluate_semantic_miou(all_sem_preds, all_sem_labels, cfg.model.ignore_label, logger)
-        acc = evaluate_semantic_acc(all_sem_preds, all_sem_labels, cfg.model.ignore_label, logger)
-        mae = evaluate_offset_mae(all_offset_preds, all_offset_labels, all_inst_labels,
-                                  cfg.model.ignore_label, logger)
-        writer.add_scalar('val/mIoU', miou, epoch)
-        writer.add_scalar('val/Acc', acc, epoch)
-        writer.add_scalar('val/Offset MAE', mae, epoch)
+        if 'semantic' in eval_tasks:
+            logger.info('Evaluate semantic segmentation and offset MAE')
+            miou = evaluate_semantic_miou(all_sem_preds, all_sem_labels, cfg.model.ignore_label,
+                                          logger)
+            acc = evaluate_semantic_acc(all_sem_preds, all_sem_labels, cfg.model.ignore_label,
+                                        logger)
+            mae = evaluate_offset_mae(all_offset_preds, all_offset_labels, all_inst_labels,
+                                      cfg.model.ignore_label, logger)
+            writer.add_scalar('val/mIoU', miou, epoch)
+            writer.add_scalar('val/Acc', acc, epoch)
+            writer.add_scalar('val/Offset MAE', mae, epoch)
 
 
 def main():

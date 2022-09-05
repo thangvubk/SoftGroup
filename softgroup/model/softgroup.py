@@ -266,27 +266,29 @@ class SoftGroup(nn.Module):
             instance_labels = self.merge_4_parts(instance_labels)
             pt_offset_labels = self.merge_4_parts(pt_offset_labels)
         semantic_preds = semantic_scores.max(1)[1]
-        ret = dict(
-            scan_id=scan_ids[0],
-            coords_float=coords_float.cpu().numpy(),
-            color_feats=color_feats.cpu().numpy(),
-            semantic_preds=semantic_preds.cpu().numpy(),
-            semantic_labels=semantic_labels.cpu().numpy(),
-            offset_preds=pt_offsets.cpu().numpy(),
-            offset_labels=pt_offset_labels.cpu().numpy(),
-            instance_labels=instance_labels.cpu().numpy())
+        ret = dict(scan_id=scan_ids[0])
+        if 'semantic' in self.test_cfg.eval_tasks:
+            ret.update(
+                dict(
+                    coords_float=coords_float.cpu().numpy(),
+                    color_feats=color_feats.cpu().numpy(),
+                    semantic_preds=semantic_preds.cpu().numpy(),
+                    semantic_labels=semantic_labels.cpu().numpy(),
+                    offset_preds=pt_offsets.cpu().numpy(),
+                    offset_labels=pt_offset_labels.cpu().numpy(),
+                    instance_labels=instance_labels.cpu().numpy()))
         if not self.semantic_only:
-            proposals_idx, proposals_offset = self.forward_grouping(semantic_scores, pt_offsets,
-                                                                    batch_idxs, coords_float,
-                                                                    self.grouping_cfg)
-            inst_feats, inst_map = self.clusters_voxelization(proposals_idx, proposals_offset,
-                                                              output_feats, coords_float,
-                                                              **self.instance_voxel_cfg)
-            _, cls_scores, iou_scores, mask_scores = self.forward_instance(inst_feats, inst_map)
-            pred_instances = self.get_instances(scan_ids[0], proposals_idx, semantic_scores,
-                                                cls_scores, iou_scores, mask_scores)
-            gt_instances = self.get_gt_instances(semantic_labels, instance_labels)
-            ret.update(dict(pred_instances=pred_instances, gt_instances=gt_instances))
+            if 'instance' in self.test_cfg.eval_tasks:
+                proposals_idx, proposals_offset = self.forward_grouping(
+                    semantic_scores, pt_offsets, batch_idxs, coords_float, self.grouping_cfg)
+                inst_feats, inst_map = self.clusters_voxelization(proposals_idx, proposals_offset,
+                                                                  output_feats, coords_float,
+                                                                  **self.instance_voxel_cfg)
+                _, cls_scores, iou_scores, mask_scores = self.forward_instance(inst_feats, inst_map)
+                pred_instances = self.get_instances(scan_ids[0], proposals_idx, semantic_scores,
+                                                    cls_scores, iou_scores, mask_scores)
+                gt_instances = self.get_gt_instances(semantic_labels, instance_labels)
+                ret.update(dict(pred_instances=pred_instances, gt_instances=gt_instances))
         return ret
 
     def forward_backbone(self, input, input_map, x4_split=False):
