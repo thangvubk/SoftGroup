@@ -1,5 +1,6 @@
 import os.path as osp
 from glob import glob
+from pathlib import Path
 
 import numpy as np
 import yaml
@@ -22,6 +23,7 @@ class KITTIDataset(CustomDataset):
                  suffix,
                  voxel_cfg=None,
                  training=True,
+                 with_label=True,
                  repeat=1,
                  logger=None):
         with open(osp.join(data_root, 'semantic-kitti.yaml'), 'r') as f:
@@ -43,8 +45,8 @@ class KITTIDataset(CustomDataset):
             else:
                 new_v = v - 9
             self.learning_map[k] = new_v
-        super(KITTIDataset, self).__init__(data_root, prefix, suffix, voxel_cfg, training, repeat,
-                                           logger)
+        super(KITTIDataset, self).__init__(data_root, prefix, suffix, voxel_cfg, training,
+                                           with_label, repeat, logger)
 
     def get_filenames(self):
         filenames_all = []
@@ -59,13 +61,17 @@ class KITTIDataset(CustomDataset):
     def load(self, filename):
         data = np.fromfile(filename, dtype=np.float32).reshape(-1, 4)
         xyz, rgb = data[:, :3], data[:, 3:]
-        label = np.fromfile(
-            filename.replace('velodyne', 'labels').replace('bin', 'label'), dtype=np.int32)
-        semantic_label = label & 0xFFFF
-        semantic_label = np.vectorize(self.learning_map.__getitem__)(semantic_label)
-        stuff_inds = semantic_label <= 10
-        instance_label = label
-        instance_label[stuff_inds] = -100
+        if self.with_label:
+            label = np.fromfile(
+                filename.replace('velodyne', 'labels').replace('bin', 'label'), dtype=np.int32)
+            semantic_label = label & 0xFFFF
+            semantic_label = np.vectorize(self.learning_map.__getitem__)(semantic_label)
+            stuff_inds = semantic_label <= 10
+            instance_label = label
+            instance_label[stuff_inds] = -100
+        else:
+            semantic_label = np.zeros(xyz.shape[0])
+            instance_label = np.zeros(xyz.shape[0])
         return xyz, rgb, semantic_label, instance_label
 
     def getCroppedInstLabel(self, instance_label, valid_idxs):
@@ -115,3 +121,11 @@ class KITTIDataset(CustomDataset):
         instance_num, instance_pointnum, instance_cls, pt_offset_label = ret
         instance_cls = [x - 11 if x != -100 else x for x in instance_cls]
         return instance_num, instance_pointnum, instance_cls, pt_offset_label
+
+    def __getitem__(self, index):
+        # add sequence_id to scan_id
+        filename = self.filenames[index]
+        parts = Path(filename).parts[-4:]
+        scan_id = osp.join(*parts).replace(self.suffix, '')
+        data = super().__getitem__(index)
+        return (scan_id, ) + data[1:]

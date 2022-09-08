@@ -322,16 +322,19 @@ class SoftGroup(nn.Module):
             pt_offset_labels = self.merge_4_parts(pt_offset_labels)
         semantic_preds = semantic_scores.max(1)[1]
         ret = dict(scan_id=scan_ids[0])
+        if 'semantic' in self.test_cfg.eval_tasks or 'panoptic' in self.test_cfg.eval_tasks:
+            ret.update(
+                dict(
+                    semantic_labels=semantic_labels.cpu().numpy(),
+                    instance_labels=instance_labels.cpu().numpy()))
         if 'semantic' in self.test_cfg.eval_tasks:
             ret.update(
                 dict(
                     coords_float=coords_float.cpu().numpy(),
                     color_feats=color_feats.cpu().numpy(),
                     semantic_preds=semantic_preds.cpu().numpy(),
-                    semantic_labels=semantic_labels.cpu().numpy(),
                     offset_preds=pt_offsets.cpu().numpy(),
-                    offset_labels=pt_offset_labels.cpu().numpy(),
-                    instance_labels=instance_labels.cpu().numpy()))
+                    offset_labels=pt_offset_labels.cpu().numpy()))
         if not self.semantic_only:
             if 'instance' in self.test_cfg.eval_tasks or 'panoptic' in self.test_cfg.eval_tasks:
                 proposals_idx, proposals_offset = self.forward_grouping(
@@ -544,18 +547,23 @@ class SoftGroup(nn.Module):
             panoptic_ids[paste] = panoptic_id
             prev_paste[paste] = 1
             panoptic_id += 1
-        panoptic_cls_new = np.zeros_like(panoptic_cls)
-        panoptic_cls_new[panoptic_cls < 11] = panoptic_cls[panoptic_cls < 11] + 9
-        panoptic_cls_new[panoptic_cls >= 11] = panoptic_cls[panoptic_cls >= 11] - 10
 
-        with open('./dataset/kitti/semantic-kitti.yaml', 'r') as f:
-            import yaml
-            semkittiyaml = yaml.safe_load(f)
-            learning_map_inv = semkittiyaml['learning_map_inv']
-            panoptic_cls_new = np.vectorize(learning_map_inv.__getitem__)(panoptic_cls_new)
+        # if thing classes have panoptic id == 0, ignore it
+        ignore_inds = (panoptic_cls >= 11) & (panoptic_ids == 0)
+
+        # convert cls to kitti format
+        # panoptic_cls_new = np.zeros_like(panoptic_cls)
+        # panoptic_cls_new[panoptic_cls < 11] = panoptic_cls[panoptic_cls < 11] + 9
+        # panoptic_cls_new[panoptic_cls >= 11] = panoptic_cls[panoptic_cls >= 11] - 10
+        # with open('./dataset/kitti/semantic-kitti.yaml', 'r') as f:
+        #     import yaml
+        #     semkittiyaml = yaml.safe_load(f)
+        #     learning_map_inv = semkittiyaml['learning_map_inv']
+        #     panoptic_cls_new = np.vectorize(learning_map_inv.__getitem__)(panoptic_cls_new)
 
         # encode panoptic results
-        panoptic_preds = (panoptic_cls_new & 0xFFFF) | (panoptic_ids << 16)
+        panoptic_preds = (panoptic_cls & 0xFFFF) | (panoptic_ids << 16)
+        panoptic_preds[ignore_inds] = self.semantic_classes
         panoptic_preds = panoptic_preds.astype(np.uint32)
         return panoptic_preds
 

@@ -24,10 +24,10 @@ model:
     pos_iou_thr: 0.5
   test_cfg:
     x4_split: False
-    cls_score_thr: 0.3
+    cls_score_thr: 0.1
     mask_score_thr: -0.5
     min_npoint: 25
-    eval_tasks: ['instance', 'panoptic']
+    eval_tasks: ['panoptic']
     panoptic_skip_iou: 0.5
   fixed_modules: []
 
@@ -50,6 +50,7 @@ data:
     prefix: 'val'
     suffix: '.bin'
     training: False
+    with_label: True
     voxel_cfg:
       scale: 20
       spatial_shape: [128, 1536]
@@ -67,11 +68,6 @@ dataloader:
 optimizer:
   type: 'Adam'
   lr: 0.004
-
-save_cfg:
-  semantic: True
-  offset: True
-  instance: False
 
 eval_min_npoint: 50
 

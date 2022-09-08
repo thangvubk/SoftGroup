@@ -8,8 +8,8 @@ import torch
 import yaml
 from munch import Munch
 from softgroup.data import build_dataloader, build_dataset
-from softgroup.evaluation import (ScanNetEval, evaluate_offset_mae, evaluate_semantic_acc,
-                                  evaluate_semantic_miou)
+from softgroup.evaluation import (PanopticEval, ScanNetEval, evaluate_offset_mae,
+                                  evaluate_semantic_acc, evaluate_semantic_miou)
 from softgroup.model import SoftGroup
 from softgroup.util import (collect_results_cpu, get_dist_info, get_root_logger, init_dist,
                             is_main_process, load_checkpoint, rle_decode)
@@ -95,7 +95,9 @@ def save_panoptic_single(path, arr):
 def save_panoptic(root, name, scan_ids, arrs):
     root = osp.join(root, name)
     os.makedirs(root, exist_ok=True)
-    paths = [osp.join(root, f'{i}.label') for i in scan_ids]
+    paths = [osp.join(root, f'{i}.label'.replace('velodyne', 'predictions')) for i in scan_ids]
+    for p in paths:
+        os.makedirs(osp.dirname(p), exist_ok=True)
     pool = mp.Pool()
     pool.starmap(save_panoptic_single, zip(paths, arrs))
 
@@ -134,14 +136,15 @@ def main():
     if is_main_process():
         for res in results:
             scan_ids.append(res['scan_id'])
+            if 'semantic' in eval_tasks or 'panoptic' in eval_tasks:
+                sem_labels.append(res['semantic_labels'])
+                inst_labels.append(res['instance_labels'])
             if 'semantic' in eval_tasks:
                 coords.append(res['coords_float'])
                 colors.append(res['color_feats'])
                 sem_preds.append(res['semantic_preds'])
-                sem_labels.append(res['semantic_labels'])
                 offset_preds.append(res['offset_preds'])
                 offset_labels.append(res['offset_labels'])
-                inst_labels.append(res['instance_labels'])
             if 'instance' in eval_tasks:
                 pred_insts.append(res['pred_instances'])
                 gt_insts.append(res['gt_instances'])
@@ -152,6 +155,11 @@ def main():
             eval_min_npoint = getattr(cfg, 'eval_min_npoint', None)
             scannet_eval = ScanNetEval(dataset.CLASSES, eval_min_npoint)
             scannet_eval.evaluate(pred_insts, gt_insts)
+        if 'panoptic' in eval_tasks:
+            logger.info('Evaluate panoptic segmentation')
+            eval_min_npoint = getattr(cfg, 'eval_min_npoint', None)
+            panoptic_eval = PanopticEval(dataset.THING, dataset.STUFF, min_points=eval_min_npoint)
+            panoptic_eval.evaluate(panoptic_preds, sem_labels, inst_labels)
         if 'semantic' in eval_tasks:
             logger.info('Evaluate semantic segmentation and offset MAE')
             ignore_label = cfg.model.ignore_label
@@ -175,7 +183,7 @@ def main():
             save_pred_instances(args.out, 'pred_instance', scan_ids, pred_insts, nyu_id)
             save_gt_instances(args.out, 'gt_instance', scan_ids, gt_insts, nyu_id)
         if 'panoptic' in eval_tasks:
-            save_panoptic(args.out, 'sequences/08/predictions', scan_ids, panoptic_preds)
+            save_panoptic(args.out, 'panoptic', scan_ids, panoptic_preds)
 
 
 if __name__ == '__main__':
