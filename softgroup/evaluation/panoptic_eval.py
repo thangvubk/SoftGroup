@@ -12,8 +12,10 @@ class PanopticEval:
                  offset=2**32,
                  min_points=50,
                  ignore_label=-100):
-        self.classes = thing_classes + stuff_classes
-        self.n_classes = len(thing_classes + stuff_classes)
+        self.thing_classes = thing_classes
+        self.stuff_classes = stuff_classes
+        self.classes = stuff_classes + thing_classes
+        self.n_classes = len(self.classes)
         self.ignore_label = ignore_label
         self.offset = offset  # largest number of instances in a given scan
         self.min_points = min_points  # smallest number of points to consider instances in gt
@@ -146,9 +148,92 @@ class PanopticEval:
             pan_tp.astype(np.double) + 0.5 * pan_fp.astype(np.double) +
             0.5 * pan_fn.astype(np.double), self.eps)
         pq_all = sq_all * rq_all
+        pq_dagger_all = pq_all.copy()
+        pq_dagger_all[:len(self.stuff_classes)] = iou_all[:len(self.stuff_classes)]
 
+        pq_all *= 100
+        sq_all *= 100
+        rq_all *= 100
+        iou_all *= 100
+        pq_dagger_all *= 100
         SQ = sq_all.mean()
         RQ = rq_all.mean()
         PQ = pq_all.mean()
-        iou = iou_all.mean()
-        return PQ, SQ, RQ, iou, pq_all, sq_all, rq_all, iou_all
+        PQ_dagger = pq_dagger_all.mean()
+        IoU = iou_all.mean()
+        self.print_results(PQ, PQ_dagger, SQ, RQ, IoU, pq_all, pq_dagger_all, sq_all, rq_all,
+                           iou_all)
+        return PQ, PQ_dagger, SQ, RQ, IoU, pq_all, pq_dagger_all, sq_all, rq_all, iou_all
+
+    def print_results(self, PQ, PQ_dagger, SQ, RQ, IoU, pq_all, pq_dagger_all, sq_all, rq_all,
+                      iou_all):
+        n_stuff = len(self.stuff_classes)
+        n_thing = len(self.thing_classes)
+        pq_stuff = np.full(pq_all.shape, np.nan)
+        sq_stuff = np.full(pq_all.shape, np.nan)
+        rq_stuff = np.full(pq_all.shape, np.nan)
+        pq_thing = np.full(pq_all.shape, np.nan)
+        rq_thing = np.full(pq_all.shape, np.nan)
+        sq_thing = np.full(pq_all.shape, np.nan)
+
+        pq_stuff[:n_stuff] = pq_all[:n_stuff]
+        sq_stuff[:n_stuff] = sq_all[:n_stuff]
+        rq_stuff[:n_stuff] = rq_all[:n_stuff]
+        pq_thing[-n_thing:] = pq_all[-n_thing:]
+        sq_thing[-n_thing:] = sq_all[-n_thing:]
+        rq_thing[-n_thing:] = rq_all[-n_thing:]
+
+        sep = ''
+        col1 = ':'
+        lineLen = 81
+
+        print()
+        print('#' * lineLen)
+        line = ''
+        line += '{:<14}'.format('what') + sep + col1
+        line += '{:>6}'.format('PQ') + sep
+        line += '{:>6}'.format('PQ*') + sep
+        line += '{:>6}'.format('RQ') + sep
+        line += '{:>6}'.format('SQ') + sep
+        line += '{:>6}'.format('PQ_t') + sep
+        line += '{:>6}'.format('RQ_t') + sep
+        line += '{:>6}'.format('SQ_t') + sep
+        line += '{:>6}'.format('PQ_s') + sep
+        line += '{:>6}'.format('RQ_s') + sep
+        line += '{:>6}'.format('SQ_s') + sep
+        line += '{:>6}'.format('mIoU') + sep
+        print(line)
+        print('#' * lineLen)
+
+        for i in range(self.n_classes):
+            line = '{:<14}'.format(self.classes[i]) + sep + col1
+            line += sep + '{:>6.1f}'.format(pq_all[i]) + sep
+            line += sep + '{:>6.1f}'.format(pq_dagger_all[i]) + sep
+            line += sep + '{:>6.1f}'.format(rq_all[i]) + sep
+            line += sep + '{:>6.1f}'.format(sq_all[i]) + sep
+
+            line += sep + '{:>6.1f}'.format(pq_thing[i]) + sep
+            line += sep + '{:>6.1f}'.format(rq_thing[i]) + sep
+            line += sep + '{:>6.1f}'.format(sq_thing[i]) + sep
+
+            line += sep + '{:>6.1f}'.format(pq_stuff[i]) + sep
+            line += sep + '{:>6.1f}'.format(rq_stuff[i]) + sep
+            line += sep + '{:>6.1f}'.format(sq_stuff[i]) + sep
+            line += sep + '{:>6.1f}'.format(iou_all[i]) + sep
+            print(line)
+
+        print('-' * lineLen)
+        line = '{:<14}'.format('average') + sep + col1
+        line += '{:>6.1f}'.format(PQ) + sep
+        line += '{:>6.1f}'.format(PQ_dagger) + sep
+        line += '{:>6.1f}'.format(RQ) + sep
+        line += '{:>6.1f}'.format(SQ) + sep
+        line += '{:>6.1f}'.format(np.nanmean(pq_thing)) + sep
+        line += '{:>6.1f}'.format(np.nanmean(rq_thing)) + sep
+        line += '{:>6.1f}'.format(np.nanmean(sq_thing)) + sep
+        line += '{:>6.1f}'.format(np.nanmean(pq_stuff)) + sep
+        line += '{:>6.1f}'.format(np.nanmean(rq_stuff)) + sep
+        line += '{:>6.1f}'.format(np.nanmean(sq_stuff)) + sep
+        line += '{:>6.1f}'.format(IoU) + sep
+        print(line)
+        print('#' * lineLen)

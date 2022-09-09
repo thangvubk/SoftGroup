@@ -128,4 +128,6 @@ class KITTIDataset(CustomDataset):
         parts = Path(filename).parts[-4:]
         scan_id = osp.join(*parts).replace(self.suffix, '')
         data = super().__getitem__(index)
+        if data is None:
+            return data
         return (scan_id, ) + data[1:]
