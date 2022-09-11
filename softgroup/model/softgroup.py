@@ -248,19 +248,11 @@ class SoftGroup(nn.Module):
         iou_score_loss = F.mse_loss(iou_score_slice, gt_ious, reduction='none')
         iou_score_loss = (iou_score_loss * iou_score_weight).sum() / (iou_score_weight.sum() + 1)
         losses['iou_score_loss'] = iou_score_loss
+
+        # add logging variables
         losses['num_pos'] = (labels < self.instance_classes).sum().float()
         losses['num_neg'] = (labels >= self.instance_classes).sum().float()
         return losses
-
-    def parse_losses1(self, losses):
-        loss = sum(v for v in losses.values())
-        losses['loss'] = loss
-        for loss_name, loss_value in losses.items():
-            if dist.is_available() and dist.is_initialized():
-                loss_value = loss_value.data.clone()
-                dist.all_reduce(loss_value.div_(dist.get_world_size()))
-            losses[loss_name] = loss_value.item()
-        return loss, losses
 
     def parse_losses(self, losses):
         """Parse the raw outputs (losses) of the network.
@@ -550,16 +542,6 @@ class SoftGroup(nn.Module):
 
         # if thing classes have panoptic id == 0, ignore it
         ignore_inds = (panoptic_cls >= 11) & (panoptic_ids == 0)
-
-        # convert cls to kitti format
-        # panoptic_cls_new = np.zeros_like(panoptic_cls)
-        # panoptic_cls_new[panoptic_cls < 11] = panoptic_cls[panoptic_cls < 11] + 9
-        # panoptic_cls_new[panoptic_cls >= 11] = panoptic_cls[panoptic_cls >= 11] - 10
-        # with open('./dataset/kitti/semantic-kitti.yaml', 'r') as f:
-        #     import yaml
-        #     semkittiyaml = yaml.safe_load(f)
-        #     learning_map_inv = semkittiyaml['learning_map_inv']
-        #     panoptic_cls_new = np.vectorize(learning_map_inv.__getitem__)(panoptic_cls_new)
 
         # encode panoptic results
         panoptic_preds = (panoptic_cls & 0xFFFF) | (panoptic_ids << 16)

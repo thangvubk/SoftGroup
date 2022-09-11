@@ -35,6 +35,7 @@ class KITTIDataset(CustomDataset):
         elif prefix == 'test':
             self.split = semkittiyaml['split']['test']
         self.learning_map = semkittiyaml['learning_map']
+        self.learning_map_inv = semkittiyaml['learning_map_inv']
 
         # stuff 0 -> 10, thing 11 -> 18, ignore -100
         for k, v in self.learning_map.items():

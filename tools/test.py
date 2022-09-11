@@ -88,18 +88,35 @@ def save_gt_instances(root, name, scan_ids, gt_insts, nyu_id=None):
     pool.join()
 
 
-def save_panoptic_single(path, arr):
-    arr.tofile(path)
+def save_panoptic_single(path, panoptic_pred, learning_map_inv, num_classes):
+    # convert cls to kitti format
+    panoptic_ids = panoptic_pred >> 16
+    panoptic_cls = panoptic_pred & 0xFFFF
+    new_learning_map_inv = {num_classes: 0}
+    for k, v in learning_map_inv.items():
+        if k == 0:
+            continue
+        if k < 9:
+            new_k = k + 10
+        else:
+            new_k = k - 9
+        new_learning_map_inv[new_k] = v
+    panoptic_cls = np.vectorize(new_learning_map_inv.__getitem__)(panoptic_cls).astype(
+        panoptic_pred.dtype)
+    panoptic_pred = (panoptic_cls & 0xFFFF) | (panoptic_ids << 16)
+    panoptic_pred.tofile(path)
 
 
-def save_panoptic(root, name, scan_ids, arrs):
+def save_panoptic(root, name, scan_ids, arrs, learning_map_inv, num_classes):
     root = osp.join(root, name)
     os.makedirs(root, exist_ok=True)
     paths = [osp.join(root, f'{i}.label'.replace('velodyne', 'predictions')) for i in scan_ids]
+    learning_map_invs = [learning_map_inv] * len(scan_ids)
+    num_classes_list = [num_classes] * len(scan_ids)
     for p in paths:
         os.makedirs(osp.dirname(p), exist_ok=True)
     pool = mp.Pool()
-    pool.starmap(save_panoptic_single, zip(paths, arrs))
+    pool.starmap(save_panoptic_single, zip(paths, arrs, learning_map_invs, num_classes_list))
 
 
 def main():
@@ -183,7 +200,8 @@ def main():
             save_pred_instances(args.out, 'pred_instance', scan_ids, pred_insts, nyu_id)
             save_gt_instances(args.out, 'gt_instance', scan_ids, gt_insts, nyu_id)
         if 'panoptic' in eval_tasks:
-            save_panoptic(args.out, 'panoptic', scan_ids, panoptic_preds)
+            save_panoptic(args.out, 'panoptic', scan_ids, panoptic_preds, dataset.learning_map_inv,
+                          cfg.model.semantic_classes)
 
 
 if __name__ == '__main__':
