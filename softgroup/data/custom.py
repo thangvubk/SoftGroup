@@ -77,7 +77,8 @@ class CustomDataset(Dataset):
         pt_mean = np.ones((xyz.shape[0], 3), dtype=np.float32) * -100.0
         instance_pointnum = []
         instance_cls = []
-        instance_num = int(instance_label.max()) + 1
+        # max(instance_num, 0) to support instance_label with no valid instance_id
+        instance_num = max(int(instance_label.max()) + 1, 0)
         for i_ in range(instance_num):
             inst_idx_i = np.where(instance_label == i_)
             xyz_i = xyz[inst_idx_i]
@@ -88,7 +89,7 @@ class CustomDataset(Dataset):
         pt_offset_label = pt_mean - xyz
         return instance_num, instance_pointnum, instance_cls, pt_offset_label
 
-    def dataAugment(self, xyz, jitter=False, flip=False, rot=False, prob=1.0):
+    def dataAugment(self, xyz, jitter=False, flip=False, rot=False, scale=False, prob=1.0):
         m = np.eye(3)
         if jitter and np.random.rand() < prob:
             m += np.random.randn(3, 3) * 0.1
@@ -98,12 +99,15 @@ class CustomDataset(Dataset):
             theta = np.random.rand() * 2 * math.pi
             m = np.matmul(m, [[math.cos(theta), math.sin(theta), 0],
                               [-math.sin(theta), math.cos(theta), 0], [0, 0, 1]])
+
         else:
             # Empirically, slightly rotate the scene can match the results from checkpoint
             theta = 0.35 * math.pi
             m = np.matmul(m, [[math.cos(theta), math.sin(theta), 0],
                               [-math.sin(theta), math.cos(theta), 0], [0, 0, 1]])
-
+        if scale and np.random.rand() < prob:
+            scale_factor = np.random.uniform(0.95, 1.05)
+            xyz = xyz * scale_factor
         return np.matmul(xyz, m)
 
     def crop(self, xyz, step=32):
@@ -156,7 +160,7 @@ class CustomDataset(Dataset):
         return xyz, xyz_middle, rgb, semantic_label, instance_label
 
     def transform_test(self, xyz, rgb, semantic_label, instance_label):
-        xyz_middle = self.dataAugment(xyz, False, False, False)
+        xyz_middle = self.dataAugment(xyz, False, False, False, False)
         xyz = xyz_middle * self.voxel_cfg.scale
         xyz -= xyz.min(0)
         valid_idxs = np.ones(xyz.shape[0], dtype=bool)
@@ -177,7 +181,7 @@ class CustomDataset(Dataset):
         coord_float = torch.from_numpy(xyz_middle)
         feat = torch.from_numpy(rgb).float()
         if self.training:
-            feat += torch.randn(3) * 0.1
+            feat += torch.randn(feat.size(1)) * 0.1
         semantic_label = torch.from_numpy(semantic_label)
         instance_label = torch.from_numpy(instance_label)
         pt_offset_label = torch.from_numpy(pt_offset_label)

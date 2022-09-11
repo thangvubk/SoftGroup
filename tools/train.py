@@ -9,11 +9,11 @@ import torch
 import yaml
 from munch import Munch
 from softgroup.data import build_dataloader, build_dataset
-from softgroup.evaluation import (ScanNetEval, evaluate_offset_mae, evaluate_semantic_acc,
-                                  evaluate_semantic_miou)
+from softgroup.evaluation import (PanopticEval, ScanNetEval, evaluate_offset_mae,
+                                  evaluate_semantic_acc, evaluate_semantic_miou)
 from softgroup.model import SoftGroup
 from softgroup.util import (AverageMeter, SummaryWriter, build_optimizer, checkpoint_save,
-                            collect_results_gpu, cosine_lr_after_step, get_dist_info,
+                            collect_results_cpu, cosine_lr_after_step, get_dist_info,
                             get_max_memory, get_root_logger, init_dist, is_main_process,
                             is_multiple, is_power2, load_checkpoint)
 from torch.nn.parallel import DistributedDataParallel
@@ -56,6 +56,8 @@ def train(epoch, model, optimizer, scaler, train_loader, cfg, logger, writer):
         # backward
         optimizer.zero_grad()
         scaler.scale(loss).backward()
+        if cfg.get('clip_grad_norm', None):
+            torch.nn.utils.clip_grad_norm_(model.parameters(), cfg.clip_grad_norm)
         scaler.step(optimizer)
         scaler.update()
 
@@ -85,6 +87,7 @@ def validate(epoch, model, val_loader, cfg, logger, writer):
     results = []
     all_sem_preds, all_sem_labels, all_offset_preds, all_offset_labels = [], [], [], []
     all_inst_labels, all_pred_insts, all_gt_insts = [], [], []
+    all_panoptic_preds = []
     _, world_size = get_dist_info()
     progress_bar = tqdm(total=len(val_loader) * world_size, disable=not is_main_process())
     val_set = val_loader.dataset
@@ -96,18 +99,21 @@ def validate(epoch, model, val_loader, cfg, logger, writer):
             results.append(result)
             progress_bar.update(world_size)
         progress_bar.close()
-        results = collect_results_gpu(results, len(val_set))
+        results = collect_results_cpu(results, len(val_set))
     if is_main_process():
         for res in results:
+            if 'semantic' in eval_tasks or 'panoptic' in eval_tasks:
+                all_sem_labels.append(res['semantic_labels'])
+                all_inst_labels.append(res['instance_labels'])
             if 'semantic' in eval_tasks:
                 all_sem_preds.append(res['semantic_preds'])
-                all_sem_labels.append(res['semantic_labels'])
                 all_offset_preds.append(res['offset_preds'])
                 all_offset_labels.append(res['offset_labels'])
-                all_inst_labels.append(res['instance_labels'])
             if 'instance' in eval_tasks:
                 all_pred_insts.append(res['pred_instances'])
                 all_gt_insts.append(res['gt_instances'])
+            if 'panoptic' in eval_tasks:
+                all_panoptic_preds.append(res['panoptic_preds'])
         if 'instance' in eval_tasks:
             logger.info('Evaluate instance segmentation')
             eval_min_npoint = getattr(cfg, 'eval_min_npoint', None)
@@ -118,6 +124,13 @@ def validate(epoch, model, val_loader, cfg, logger, writer):
             writer.add_scalar('val/AP_25', eval_res['all_ap_25%'], epoch)
             logger.info('AP: {:.3f}. AP_50: {:.3f}. AP_25: {:.3f}'.format(
                 eval_res['all_ap'], eval_res['all_ap_50%'], eval_res['all_ap_25%']))
+        if 'panoptic' in eval_tasks:
+            logger.info('Evaluate panoptic segmentation')
+            eval_min_npoint = getattr(cfg, 'eval_min_npoint', None)
+            panoptic_eval = PanopticEval(val_set.THING, val_set.STUFF, min_points=eval_min_npoint)
+            eval_res = panoptic_eval.evaluate(all_panoptic_preds, all_sem_labels, all_inst_labels)
+            writer.add_scalar('val/PQ', eval_res[0], epoch)
+            logger.info('PQ: {:.1f}'.format(eval_res[0]))
         if 'semantic' in eval_tasks:
             logger.info('Evaluate semantic segmentation and offset MAE')
             miou = evaluate_semantic_miou(all_sem_preds, all_sem_labels, cfg.model.ignore_label,

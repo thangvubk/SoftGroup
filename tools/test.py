@@ -8,10 +8,10 @@ import torch
 import yaml
 from munch import Munch
 from softgroup.data import build_dataloader, build_dataset
-from softgroup.evaluation import (ScanNetEval, evaluate_offset_mae, evaluate_semantic_acc,
-                                  evaluate_semantic_miou)
+from softgroup.evaluation import (PanopticEval, ScanNetEval, evaluate_offset_mae,
+                                  evaluate_semantic_acc, evaluate_semantic_miou)
 from softgroup.model import SoftGroup
-from softgroup.util import (collect_results_gpu, get_dist_info, get_root_logger, init_dist,
+from softgroup.util import (collect_results_cpu, get_dist_info, get_root_logger, init_dist,
                             is_main_process, load_checkpoint, rle_decode)
 from torch.nn.parallel import DistributedDataParallel
 from tqdm import tqdm
@@ -88,6 +88,37 @@ def save_gt_instances(root, name, scan_ids, gt_insts, nyu_id=None):
     pool.join()
 
 
+def save_panoptic_single(path, panoptic_pred, learning_map_inv, num_classes):
+    # convert cls to kitti format
+    panoptic_ids = panoptic_pred >> 16
+    panoptic_cls = panoptic_pred & 0xFFFF
+    new_learning_map_inv = {num_classes: 0}
+    for k, v in learning_map_inv.items():
+        if k == 0:
+            continue
+        if k < 9:
+            new_k = k + 10
+        else:
+            new_k = k - 9
+        new_learning_map_inv[new_k] = v
+    panoptic_cls = np.vectorize(new_learning_map_inv.__getitem__)(panoptic_cls).astype(
+        panoptic_pred.dtype)
+    panoptic_pred = (panoptic_cls & 0xFFFF) | (panoptic_ids << 16)
+    panoptic_pred.tofile(path)
+
+
+def save_panoptic(root, name, scan_ids, arrs, learning_map_inv, num_classes):
+    root = osp.join(root, name)
+    os.makedirs(root, exist_ok=True)
+    paths = [osp.join(root, f'{i}.label'.replace('velodyne', 'predictions')) for i in scan_ids]
+    learning_map_invs = [learning_map_inv] * len(scan_ids)
+    num_classes_list = [num_classes] * len(scan_ids)
+    for p in paths:
+        os.makedirs(osp.dirname(p), exist_ok=True)
+    pool = mp.Pool()
+    pool.starmap(save_panoptic_single, zip(paths, arrs, learning_map_invs, num_classes_list))
+
+
 def main():
     args = get_args()
     cfg_txt = open(args.config, 'r').read()
@@ -107,6 +138,7 @@ def main():
     results = []
     scan_ids, coords, colors, sem_preds, sem_labels = [], [], [], [], []
     offset_preds, offset_labels, inst_labels, pred_insts, gt_insts = [], [], [], [], []
+    panoptic_preds = []
     _, world_size = get_dist_info()
     progress_bar = tqdm(total=len(dataloader) * world_size, disable=not is_main_process())
     eval_tasks = cfg.model.test_cfg.eval_tasks
@@ -117,26 +149,34 @@ def main():
             results.append(result)
             progress_bar.update(world_size)
         progress_bar.close()
-        results = collect_results_gpu(results, len(dataset))
+        results = collect_results_cpu(results, len(dataset))
     if is_main_process():
         for res in results:
             scan_ids.append(res['scan_id'])
+            if 'semantic' in eval_tasks or 'panoptic' in eval_tasks:
+                sem_labels.append(res['semantic_labels'])
+                inst_labels.append(res['instance_labels'])
             if 'semantic' in eval_tasks:
                 coords.append(res['coords_float'])
                 colors.append(res['color_feats'])
                 sem_preds.append(res['semantic_preds'])
-                sem_labels.append(res['semantic_labels'])
                 offset_preds.append(res['offset_preds'])
                 offset_labels.append(res['offset_labels'])
-                inst_labels.append(res['instance_labels'])
             if 'instance' in eval_tasks:
                 pred_insts.append(res['pred_instances'])
                 gt_insts.append(res['gt_instances'])
+            if 'panoptic' in eval_tasks:
+                panoptic_preds.append(res['panoptic_preds'])
         if 'instance' in eval_tasks:
             logger.info('Evaluate instance segmentation')
             eval_min_npoint = getattr(cfg, 'eval_min_npoint', None)
             scannet_eval = ScanNetEval(dataset.CLASSES, eval_min_npoint)
             scannet_eval.evaluate(pred_insts, gt_insts)
+        if 'panoptic' in eval_tasks:
+            logger.info('Evaluate panoptic segmentation')
+            eval_min_npoint = getattr(cfg, 'eval_min_npoint', None)
+            panoptic_eval = PanopticEval(dataset.THING, dataset.STUFF, min_points=eval_min_npoint)
+            panoptic_eval.evaluate(panoptic_preds, sem_labels, inst_labels)
         if 'semantic' in eval_tasks:
             logger.info('Evaluate semantic segmentation and offset MAE')
             ignore_label = cfg.model.ignore_label
@@ -159,6 +199,9 @@ def main():
             nyu_id = dataset.NYU_ID
             save_pred_instances(args.out, 'pred_instance', scan_ids, pred_insts, nyu_id)
             save_gt_instances(args.out, 'gt_instance', scan_ids, gt_insts, nyu_id)
+        if 'panoptic' in eval_tasks:
+            save_panoptic(args.out, 'panoptic', scan_ids, panoptic_preds, dataset.learning_map_inv,
+                          cfg.model.semantic_classes)
 
 
 if __name__ == '__main__':
