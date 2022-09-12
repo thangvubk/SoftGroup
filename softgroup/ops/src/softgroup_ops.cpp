@@ -5,6 +5,7 @@
 #include "bfs_cluster/bfs_cluster.cpp"
 #include "cal_iou_and_masklabel/cal_iou_and_masklabel.cpp"
 #include "datatype/datatype.cpp"
+#include "octree_ball_query/octree_ball_query.cpp"
 #include "roipool/roipool.cpp"
 #include "sec_mean/sec_mean.cpp"
 #include "voxelize/voxelize.cpp"

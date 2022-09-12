@@ -1,17 +1,22 @@
 model:
   channels: 32
   num_blocks: 7
-  semantic_classes: 13
-  instance_classes: 13
-  sem2ins_classes: [0, 1]
-  semantic_only: True
+  semantic_classes: 20
+  instance_classes: 18
+  sem2ins_classes: []
+  semantic_only: False
   ignore_label: -100
   grouping_cfg:
+    with_pyramid: True
+    pyramid_base_size: 0.02
+    with_octree: True
     score_thr: 0.2
     radius: 0.04
     mean_active: 300
-    class_numpoint_mean: [1823, 7457, 6189, 7424, 34229, 1724, 5439,
-                          6016, 39796, 5279, 5092, 12210, 10225]
+    class_numpoint_mean: [-1., -1., 3917., 12056., 2303.,
+                          8331., 3948., 3166., 5629., 11719.,
+                          1003., 3317., 4912., 10221., 3889.,
+                          4136., 2120., 945., 3967., 2589.]
     npoint_thr: 0.05  # absolute if class_numpoint == -1, relative if class_numpoint != -1
     ignore_classes: [0, 1]
   instance_voxel_cfg:
@@ -21,30 +26,30 @@ model:
     max_proposal_num: 200
     pos_iou_thr: 0.5
   test_cfg:
-    x4_split: True
+    lvl_fusion: True
+    x4_split: False
     cls_score_thr: 0.001
     mask_score_thr: -0.5
     min_npoint: 100
-    eval_tasks: ['semantic']
-  fixed_modules: []
+  fixed_modules: ['input_conv', 'unet', 'output_layer', 'semantic_linear', 'offset_linear']
 
 data:
   train:
-    type: 's3dis'
-    data_root: 'dataset/s3dis/preprocess'
-    prefix: ['Area_1', 'Area_2', 'Area_3', 'Area_4', 'Area_6']
+    type: 'scannetv2'
+    data_root: 'dataset/scannetv2'
+    prefix: 'train'
     suffix: '_inst_nostuff.pth'
-    repeat: 20
     training: True
+    repeat: 4
     voxel_cfg:
       scale: 50
       spatial_shape: [128, 512]
       max_npoint: 250000
       min_npoint: 5000
   test:
-    type: 's3dis'
-    data_root: 'dataset/s3dis/preprocess'
-    prefix: 'Area_5'
+    type: 'scannetv2'
+    data_root: 'dataset/scannetv2'
+    prefix: 'val'
     suffix: '_inst_nostuff.pth'
     training: False
     voxel_cfg:
@@ -65,9 +70,14 @@ optimizer:
   type: 'Adam'
   lr: 0.004
 
+save_cfg:
+  semantic: True
+  offset: True
+  instance: True
+
 fp16: False
-epochs: 20
-step_epoch: 0
-save_freq: 2
+epochs: 128
+step_epoch: 50
+save_freq: 4
 pretrain: './hais_ckpt_spconv2.pth'
 work_dir: ''

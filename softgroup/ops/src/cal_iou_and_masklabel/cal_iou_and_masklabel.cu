@@ -1,15 +1,10 @@
 /*
 Calculate the IoU between predictions and GTs and generate mask labels
 */
-
+#include "../cuda_utils.h"
 #include "cal_iou_and_masklabel.h"
 #include <math.h>
 #include <stdio.h>
-
-#define MAX_BLOCKS_PER_GRID 32768
-#define MAX_THREADS_PER_BLOCK 512
-
-#define DIVUP(m, n) ((m) / (n) + ((m) % (n) > 0))
 
 __global__ void
 get_mask_iou_on_cluster_cuda_(int nInstance, int nProposal, int *proposals_idx,

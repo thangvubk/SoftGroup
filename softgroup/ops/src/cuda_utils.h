@@ -3,22 +3,20 @@
 
 #include <cmath>
 
-#define TOTAL_THREADS 1024
+#define MAX_BLOCKS_PER_GRID 65000
 
-#define MAX_THREADS_PER_BLOCK 512
+#define MAX_THREADS_PER_BLOCK 1024
+
 #define DIVUP(m, n) ((m) / (n) + ((m) % (n) > 0))
 
-inline int opt_n_threads(int work_size) {
-  const int pow_2 = std::log(static_cast<double>(work_size)) / std::log(2.0);
-  return max(min(1 << pow_2, TOTAL_THREADS), 1);
-}
+#define CUDA_1D_KERNEL_LOOP(i, n)                                              \
+  for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < n;                   \
+       i += blockDim.x * gridDim.x)
 
-inline dim3 opt_block_config(int x, int y) {
-  const int x_threads = opt_n_threads(x);
-  const int y_threads =
-      max(min(opt_n_threads(y), TOTAL_THREADS / x_threads), 1);
-  dim3 block_config(x_threads, y_threads, 1);
-  return block_config;
+inline int GET_BLOCKS(const int N) {
+  int optimal_block_num =
+      (N + MAX_THREADS_PER_BLOCK - 1) / MAX_THREADS_PER_BLOCK;
+  return min(optimal_block_num, MAX_BLOCKS_PER_GRID);
 }
 
 #endif
