@@ -12,13 +12,13 @@ model:
   grouping_cfg:
     with_pyramid: True
     pyramid_base_size: 0.3333
-    with_octree: True  # TODO true
+    with_octree: True
     score_thr: 0.2
     radius: 0.9
     mean_active: 3
     class_numpoint_mean: [-1., 10408., 58., 124., 1351., 162., 430., 1090., 451., 26., 43.,
                           61., 39., 109., 1239]
-    npoint_thr: 0.05  # absolute if class_numpoint == -1, relative if class_numpoint != -1
+    npoint_thr: 0.01  # absolute if class_numpoint == -1, relative if class_numpoint != -1
     ignore_classes: [0]
   instance_voxel_cfg:
     scale: 3
@@ -33,7 +33,8 @@ model:
     x4_split: False
     cls_score_thr: 0.001
     mask_score_thr: -0.5
-    min_npoint: 15
+    min_npoint: 10
+    eval_tasks: ['semantic', 'instance']
   fixed_modules: []
 
 data:
@@ -72,11 +73,6 @@ dataloader:
 optimizer:
   type: 'Adam'
   lr: 0.004
-
-save_cfg:
-  semantic: True
-  offset: True
-  instance: True
 
 eval_min_npoint: 10
 

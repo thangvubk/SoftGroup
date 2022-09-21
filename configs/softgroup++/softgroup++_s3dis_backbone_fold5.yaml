@@ -25,6 +25,7 @@ model:
     cls_score_thr: 0.001
     mask_score_thr: -0.5
     min_npoint: 100
+    eval_tasks: ['semantic']
   fixed_modules: []
 
 data:
@@ -63,11 +64,6 @@ dataloader:
 optimizer:
   type: 'Adam'
   lr: 0.004
-
-save_cfg:
-  semantic: True
-  offset: True
-  instance: False
 
 fp16: False
 epochs: 40

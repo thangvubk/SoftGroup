@@ -323,8 +323,10 @@ class SoftGroup(nn.Module):
                     semantic_labels=semantic_labels.cpu().numpy(),
                     instance_labels=instance_labels.cpu().numpy()))
         if 'semantic' in self.test_cfg.eval_tasks:
-            ret = self.get_point_wise_results(coords_float, color_feats, semantic_preds, pt_offsets,
-                                              pt_offset_labels, v2p_map, lvl_fusion)
+            point_wise_results = self.get_point_wise_results(coords_float, color_feats,
+                                                             semantic_preds, pt_offsets,
+                                                             pt_offset_labels, v2p_map, lvl_fusion)
+            ret.update(point_wise_results)
         if not self.semantic_only:
             if 'instance' in self.test_cfg.eval_tasks or 'panoptic' in self.test_cfg.eval_tasks:
                 if lvl_fusion:

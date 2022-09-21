@@ -41,6 +41,7 @@ data:
       spatial_shape: [128, 512]
       max_npoint: 250000
       min_npoint: 5000
+    x4_split: True
   test:
     type: 's3dis'
     data_root: 'dataset/s3dis/preprocess'
@@ -52,6 +53,7 @@ data:
       spatial_shape: [128, 512]
       max_npoint: 250000
       min_npoint: 5000
+    x4_split: True
 
 dataloader:
   train:
