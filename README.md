@@ -23,13 +23,13 @@ Existing state-of-the-art 3D instance segmentation methods perform semantic segm
 ## Feature
 * State of the art performance on the [ScanNet benchmark](http://kaldir.vc.in.tum.de/scannet_benchmark/semantic_instance_3d) and S3DIS dataset (3/Mar/2022).
 * High speed of 345 ms per scan on ScanNet dataset, which is comparable with the existing fastest methods ([HAIS](https://github.com/hustvl/HAIS)). Our refactored implementation (this code) further reduce the inference time to 288 ms per scan.
-* Support multiple datasets: ScanNet, S3DIS, STPLS3D.
+* Support multiple datasets: ScanNet, S3DIS, STPLS3D, SemanticKITTI.
 
 ## Installation
 Please refer to [installation guide](docs/installation.md).
 
 ## Data Preparation
-Please refer to [data preparation](dataset/README.md) for preparing the S3DIS and ScanNet v2 dataset.
+Please refer to [data preparation](dataset/README.md).
 
 ## Pretrained models
 
