@@ -53,3 +53,35 @@ SoftGroup
 │   │   ├── test
 │   │   ├── val_gt
 ```
+
+## STPLS3D dataset
+1\) Download the [STPLS3D](https://www.stpls3d.com/) dataset
+
+2\) Put ``Synthetic_v3_InstanceSegmentation.zip`` to ``dataset/stpls3d`` and unzip
+
+3\) Preprocess data
+```
+cd SoftGroup/dataset/stpls3d
+bash prepare_data.sh
+```
+
+## SemanticKITTI dataset
+1\) Download the [SemanticKITTI](http://www.semantic-kitti.org/dataset.html) dataset
+
+2\) Unzip the downloaded data and put the ``sequences`` to ``dataset/kitti``
+
+3\) The data structure should be as follows:
+```
+SoftGroup
+├── dataset
+│   ├── kitti
+│   │   ├── sequences
+│   │   |   |── 00
+│   │   |   |   ├── calib.txt
+│   │   |   |   ├── labels
+│   │   |   |   ├── poses.txt
+│   │   |   |   ├── times.txt
+│   │   |   |   ├── velodyne
+│   │   |   |── ...
+│   │   |   |── 21
+```

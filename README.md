@@ -23,22 +23,29 @@ Existing state-of-the-art 3D instance segmentation methods perform semantic segm
 ## Feature
 * State of the art performance on the [ScanNet benchmark](http://kaldir.vc.in.tum.de/scannet_benchmark/semantic_instance_3d) and S3DIS dataset (3/Mar/2022).
 * High speed of 345 ms per scan on ScanNet dataset, which is comparable with the existing fastest methods ([HAIS](https://github.com/hustvl/HAIS)). Our refactored implementation (this code) further reduce the inference time to 288 ms per scan.
-* Support multiple datasets: ScanNet, S3DIS, STPLS3D.
+* Support multiple datasets: ScanNet, S3DIS, STPLS3D, SemanticKITTI.
 
 ## Installation
 Please refer to [installation guide](docs/installation.md).
 
 ## Data Preparation
-Please refer to [data preparation](dataset/README.md) for preparing the S3DIS and ScanNet v2 dataset.
+Please refer to [data preparation](dataset/README.md).
 
 ## Pretrained models
 
+### Instance segmentation
 
 |   Dataset  |  AP  | AP_50 | AP_25 | Bbox AP_50 | Bbox AP_25 |                                           Download                                          |
 |:----------:|:----:|:-----:|:-----:|:-----:|:-----:|:-------------------------------------------------------------------------------------------:|
 |    S3DIS   | 51.4 |  66.5 |  75.4 |  -    |  -    | [model](https://drive.google.com/file/d/1-f7I6-eIma4OilBON928N6mVcYbhiUFP/view?usp=sharing) |
 | ScanNet v2 | 46.0 |  67.6 |  78.9 |  59.4 |  71.6 | [model](https://drive.google.com/file/d/1XUNRfred9QAEUY__VdmSgZxGQ7peG5ms/view?usp=sharing) |
 |  STPLS3D   | 46.4 |  62.0 |  69.5 |  -    |  -    | [model](https://drive.google.com/file/d/1xCkKLTCYtQmSjXYH_sSg21M_6dcAskd8/view?usp=sharing) |
+
+### Panoptic segmentation
+
+|    Dataset    |  PQ  | Config | Model |
+|:-------------:|:----:|:------:|:-----:|
+| SemanticKITTI | 60.2 | [config](https://github.com/thangvubk/SoftGroup/blob/main/configs/softgroup_kitti.yaml) | [model](https://drive.google.com/file/d/10Ln-xLfl8Z3DX3G3lnO_RruJtYUYDfI7/view?usp=sharing)     |
 
 ## Training
 We use the checkpoint of [HAIS](https://github.com/hustvl/HAIS) as pretrained backbone. **We have already converted the checkpoint to work on ``spconv2.x``**. Download the pretrained HAIS-spconv2 model and put it in ``SoftGroup/`` directory.
