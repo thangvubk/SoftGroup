@@ -2,11 +2,18 @@
 [![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/softgroup-for-3d-instance-segmentation-on/3d-instance-segmentation-on-scannetv2)](https://paperswithcode.com/sota/3d-instance-segmentation-on-scannetv2?p=softgroup-for-3d-instance-segmentation-on) [![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/softgroup-for-3d-instance-segmentation-on/3d-instance-segmentation-on-s3dis)](https://paperswithcode.com/sota/3d-instance-segmentation-on-s3dis?p=softgroup-for-3d-instance-segmentation-on) [![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/softgroup-for-3d-instance-segmentation-on/3d-object-detection-on-scannetv2)](https://paperswithcode.com/sota/3d-object-detection-on-scannetv2?p=softgroup-for-3d-instance-segmentation-on)
 ![Architecture](./docs/architecture.png)
 
-We provide code for reproducing results of the paper [**SoftGroup for 3D Instance Segmentation on Point Clouds (CVPR 2022 Oral)**](https://arxiv.org/abs/2203.01509)
+We provide code for reproducing results of two papers 
 
-Author: Thang Vu, Kookhoi Kim, Tung M. Luu, Xuan Thanh Nguyen, and Chang D. Yoo.
+[**SoftGroup for 3D Instance Segmentation on Point Clouds**](https://arxiv.org/abs/2203.01509)\
+Thang Vu, Kookhoi Kim, Tung M. Luu, Thanh Nguyen, and Chang D. Yoo.\
+**CVPR 2022 (Oral)**.
+
+[**Scalable SoftGroup for 3D Instance Segmentation on Point Clouds**](https://arxiv.org/abs/2209.08263)\
+Thang Vu, Kookhoi Kim, Tung M. Luu, Thanh Nguyen, Junyeong Kim, and Chang D. Yoo.\
+**arXiv preprint 2022**.
 
 ## Update
+- 25/Nov/2022: Support [SoftGroup++](https://arxiv.org/abs/2209.08263).
 - 12/Sep/2022: Support panoptic segmentation on SemanticKITTI dataset.
 - 28/Jun/2022: Support STPLS3D dataset. Add custom dataset guideline.
 - 16/Apr/2022: The code base is refactored. Coding is more extendable, readable, and consistent. The following features are supported:
@@ -35,11 +42,14 @@ Please refer to [data preparation](dataset/README.md).
 
 ### Instance segmentation
 
-|   Dataset  |  AP  | AP_50 | AP_25 | Bbox AP_50 | Bbox AP_25 |                                           Download                                          |
-|:----------:|:----:|:-----:|:-----:|:-----:|:-----:|:-------------------------------------------------------------------------------------------:|
-|    S3DIS   | 51.4 |  66.5 |  75.4 |  -    |  -    | [model](https://drive.google.com/file/d/1-f7I6-eIma4OilBON928N6mVcYbhiUFP/view?usp=sharing) |
-| ScanNet v2 | 46.0 |  67.6 |  78.9 |  59.4 |  71.6 | [model](https://drive.google.com/file/d/1XUNRfred9QAEUY__VdmSgZxGQ7peG5ms/view?usp=sharing) |
-|  STPLS3D   | 46.4 |  62.0 |  69.5 |  -    |  -    | [model](https://drive.google.com/file/d/1xCkKLTCYtQmSjXYH_sSg21M_6dcAskd8/view?usp=sharing) |
+|   Dataset  |   Model     |   AP  | AP_50 | AP_25 |                                           Download                                         |
+|:----------:|:-----------:|:----:|:-----:|:-----:|:-------------------------------------------------------------------------------------------:|
+|    S3DIS   | SoftGroup   | 51.4 |  66.5 |  75.4 | [model](https://drive.google.com/file/d/1-f7I6-eIma4OilBON928N6mVcYbhiUFP/view?usp=sharing) |
+|    S3DIS   | SoftGroup++ | 50.9 |  67.8 |  76.0 | [model](https://drive.google.com/file/d/1OLbC8lmWkAQbqYAjiFj84egLQmJr-PmQ/view?usp=sharing) |
+| ScanNet v2 | SoftGroup   | 45.8 |  67.4 |  79.1 | [model](https://drive.google.com/file/d/1XUNRfred9QAEUY__VdmSgZxGQ7peG5ms/view?usp=sharing) |
+| ScanNet v2 | SoftGroup++ | 45.9 |  67.9 |  79.4 | Above |
+|  STPLS3D   | SoftGroup   | 47.3 |  63.1 |  71.4 | [model](https://drive.google.com/file/d/1xCkKLTCYtQmSjXYH_sSg21M_6dcAskd8/view?usp=sharing) |
+|  STPLS3D   | SoftGroup++ | 46.5 |  62.9 |  71.8 | Above |
 
 ### Panoptic segmentation
 
@@ -114,5 +124,7 @@ If you find our work helpful for your research. Please consider citing our paper
   year={2022}
 }
 ```
-## References
+## Acknowledgements
 Code is built based on [HAIS](https://github.com/hustvl/HAIS), [PointGroup](https://github.com/dvlab-research/PointGroup), and [spconv](https://github.com/traveller59/spconv)
+
+This work was partly supported by Institute for Information communications Technology Planning Evaluation (IITP) grant funded by the Korea government (MSIT) (2021-0-01381, Development of Causal AI through Video Understanding, and partly supported by Institute of Information \& Communications Technology Planning \& Evaluation (IITP) grant funded by the Korea government (MSIT) (No. 2019-0-01371, Development of brain-inspired AI with human-like intelligence).
