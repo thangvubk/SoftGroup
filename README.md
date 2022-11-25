@@ -47,9 +47,11 @@ Please refer to [data preparation](dataset/README.md).
 |    S3DIS   | SoftGroup   | 51.4 |  66.5 |  75.4 | [model](https://drive.google.com/file/d/1-f7I6-eIma4OilBON928N6mVcYbhiUFP/view?usp=sharing) |
 |    S3DIS   | SoftGroup++ | 50.9 |  67.8 |  76.0 | [model](https://drive.google.com/file/d/1OLbC8lmWkAQbqYAjiFj84egLQmJr-PmQ/view?usp=sharing) |
 | ScanNet v2 | SoftGroup   | 45.8 |  67.4 |  79.1 | [model](https://drive.google.com/file/d/1XUNRfred9QAEUY__VdmSgZxGQ7peG5ms/view?usp=sharing) |
-| ScanNet v2 | SoftGroup++ | 45.9 |  67.9 |  79.4 | Above |
+| ScanNet v2 | SoftGroup++ | 45.9 |  67.9 |  79.4 | above |
 |  STPLS3D   | SoftGroup   | 47.3 |  63.1 |  71.4 | [model](https://drive.google.com/file/d/1xCkKLTCYtQmSjXYH_sSg21M_6dcAskd8/view?usp=sharing) |
-|  STPLS3D   | SoftGroup++ | 46.5 |  62.9 |  71.8 | Above |
+|  STPLS3D   | SoftGroup++ | 46.5 |  62.9 |  71.8 | above |
+
+> **_NOTE:_**  SoftGroup and SoftGroup++ use can use same trained model for inference on ScanNet v2 and STPLS3D.
 
 ### Panoptic segmentation
 
