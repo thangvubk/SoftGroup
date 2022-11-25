@@ -4,6 +4,46 @@ from torch.autograd import Function
 from . import ops
 
 
+def ball_query(coords, batch_idxs, batch_offsets, radius, mean_active, with_octree=False):
+    if with_octree:
+        return octree_ball_query(coords, mean_active, radius)
+    else:
+        return ballquery_batch_p(coords, batch_idxs, batch_offsets, radius, mean_active)
+
+
+def octree_ball_query(coords, mean_active, radius):
+    coords = coords.cpu()
+    assert coords.is_contiguous()
+    xyz_max = coords.max(0)[0]
+    xyz_min = coords.min(0)[0]
+    xyzwhl = torch.cat([(xyz_max + xyz_min) / 2, xyz_max - xyz_min])
+
+    n = coords.size(0)
+    pt_inds = torch.zeros(coords.size(0), dtype=torch.int32)
+    # TODO remove these vars
+    num_nodes = 1 + 8 + 64 + 512
+    num_leaves = 512
+    num_levels = 3
+    boxes = torch.zeros((num_nodes, 6), dtype=torch.float32)
+    pt_start_len = torch.zeros((num_leaves, 2), dtype=torch.int32)
+    ops.build_and_export_octree(coords, xyzwhl, boxes, pt_inds, pt_start_len, num_levels)
+    boxes = boxes.cuda()
+    pt_inds = pt_inds.cuda()
+    pt_start_len = pt_start_len.cuda()
+    coords = coords.cuda()
+    while True:
+        out_inds = torch.zeros(n * mean_active, dtype=torch.int32, device='cuda')
+        out_start_len = torch.zeros((n, 2), dtype=torch.int32, device='cuda')
+        n_totals = ops.octree_ball_query(coords, boxes, pt_inds, pt_start_len, out_inds,
+                                         out_start_len, mean_active, radius)
+        if n_totals <= n * mean_active:
+            break
+        mean_active = int(n_totals // n + 1)
+    out_inds = out_inds[:n_totals]
+
+    return out_inds, out_start_len
+
+
 class GetMaskIoUOnCluster(Function):
 
     @staticmethod

@@ -14,6 +14,9 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def("voxelize_fp", &voxelize_fp_feat, "voxelize_fp");
   m.def("voxelize_bp", &voxelize_bp_feat, "voxelize_bp");
 
+  m.def("build_and_export_octree", &build_and_export_octree,
+        "build_and_export_octree");
+  m.def("octree_ball_query", &octree_ball_query, "octree_ball_query");
   m.def("ballquery_batch_p", &ballquery_batch_p, "ballquery_batch_p");
   m.def("bfs_cluster", &bfs_cluster, "bfs_cluster");
 

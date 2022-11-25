@@ -13,6 +13,10 @@ class S3DISDataset(CustomDataset):
     CLASSES = ('ceiling', 'floor', 'wall', 'beam', 'column', 'window', 'door', 'chair', 'table',
                'bookcase', 'sofa', 'board', 'clutter')
 
+    def __init__(self, x4_split=False, **kwargs):
+        super().__init__(**kwargs)
+        self.x4_split = x4_split
+
     def get_filenames(self):
         if isinstance(self.prefix, str):
             self.prefix = [self.prefix]
@@ -25,10 +29,9 @@ class S3DISDataset(CustomDataset):
         return filenames_all
 
     def load(self, filename):
-        # TODO make file load results consistent
         xyz, rgb, semantic_label, instance_label, _, _ = torch.load(filename)
         # subsample data
-        if self.training:
+        if self.training and self.x4_split:
             N = xyz.shape[0]
             inds = np.random.choice(N, int(N * 0.25), replace=False)
             xyz = xyz[inds]
@@ -41,6 +44,8 @@ class S3DISDataset(CustomDataset):
         return super().crop(xyz, step=step)
 
     def transform_test(self, xyz, rgb, semantic_label, instance_label):
+        if not self.x4_split:
+            return super().transform_test(xyz, rgb, semantic_label, instance_label)
         # devide into 4 piecies
         inds = np.arange(xyz.shape[0])
         piece_1 = inds[::4]
@@ -73,7 +78,7 @@ class S3DISDataset(CustomDataset):
         return xyz, xyz_middle, rgb, semantic_label, instance_label
 
     def collate_fn(self, batch):
-        if self.training:
+        if self.training or not self.x4_split:
             return super().collate_fn(batch)
 
         # assume 1 scan only

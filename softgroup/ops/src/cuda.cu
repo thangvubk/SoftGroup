@@ -3,6 +3,7 @@
 
 #include "bfs_cluster/bfs_cluster.cu"
 #include "cal_iou_and_masklabel/cal_iou_and_masklabel.cu"
+#include "octree_ball_query/octree_ball_query.cu"
 #include "roipool/roipool.cu"
 #include "sec_mean/sec_mean.cu"
 #include "voxelize/voxelize.cu"

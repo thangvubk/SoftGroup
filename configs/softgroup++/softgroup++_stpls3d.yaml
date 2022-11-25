@@ -10,17 +10,21 @@ model:
   ignore_label: -100
   with_coords: False
   grouping_cfg:
+    with_pyramid: True
+    pyramid_base_size: 0.3333
+    with_octree: True
     score_thr: 0.2
     radius: 0.9
     mean_active: 3
     class_numpoint_mean: [-1., 10408., 58., 124., 1351., 162., 430., 1090., 451., 26., 43.,
                           61., 39., 109., 1239]
-    npoint_thr: 0.05  # absolute if class_numpoint == -1, relative if class_numpoint != -1
+    npoint_thr: 0.01  # absolute if class_numpoint == -1, relative if class_numpoint != -1
     ignore_classes: [0]
   instance_voxel_cfg:
     scale: 3
     spatial_shape: 20
   train_cfg:
+    lvl_fusion: True
     max_proposal_num: 300
     pos_iou_thr: 0.5
     match_low_quality: True
@@ -29,7 +33,7 @@ model:
     x4_split: False
     cls_score_thr: 0.001
     mask_score_thr: -0.5
-    min_npoint: 15
+    min_npoint: 10
     eval_tasks: ['semantic', 'instance']
   fixed_modules: []
 
@@ -49,7 +53,7 @@ data:
   test:
     type: 'stpls3d'
     data_root: 'dataset/stpls3d'
-    prefix: 'val'
+    prefix: 'val_250m'
     suffix: '_inst_nostuff.pth'
     training: False
     voxel_cfg:
@@ -76,5 +80,5 @@ fp16: False
 epochs: 108
 step_epoch: 20
 save_freq: 4
-pretrain: './work_dirs/softgroup_stpls3d_backbone/latest.pth'
+pretrain: './work_dirs/softgroup_opg_stpls3d_backbone/latest.pth'
 work_dir: ''

@@ -1,0 +1,76 @@
+model:
+  channels: 16
+  num_blocks: 7
+  semantic_classes: 15
+  instance_classes: 14
+  sem2ins_classes: []
+  semantic_only: True
+  semantic_weight: [1.0, 1.0, 44.0, 21.9, 1.8, 25.1, 31.5, 21.8, 24.0, 54.4, 114.4,
+                    81.2, 43.6, 9.7, 22.4]
+  with_coords: False
+  ignore_label: -100
+  grouping_cfg:
+    score_thr: 0.2
+    radius: 0.9
+    mean_active: 3
+    class_numpoint_mean: [-1., 10408., 58., 124., 1351., 162., 430., 1090., 451., 26., 43.,
+                          61., 39., 109., 1239]
+    npoint_thr: 0.05  # absolute if class_numpoint == -1, relative if class_numpoint != -1
+    ignore_classes: [0]
+  instance_voxel_cfg:
+    scale: 3
+    spatial_shape: 20
+  train_cfg:
+    max_proposal_num: 200
+    pos_iou_thr: 0.5
+  test_cfg:
+    x4_split: False
+    cls_score_thr: 0.001
+    mask_score_thr: -0.5
+    min_npoint: 100
+    eval_tasks: ['semantic']
+  fixed_modules: []
+
+data:
+  train:
+    type: 'stpls3d'
+    data_root: 'dataset/stpls3d'
+    prefix: 'train'
+    suffix: '_inst_nostuff.pth'
+    training: True
+    repeat: 4
+    voxel_cfg:
+      scale: 3
+      spatial_shape: [128, 512]
+      max_npoint: 250000
+      min_npoint: 5000
+  test:
+    type: 'stpls3d'
+    data_root: 'dataset/stpls3d'
+    prefix: 'val_250m'
+    suffix: '_inst_nostuff.pth'
+    training: False
+    voxel_cfg:
+      scale: 3
+      spatial_shape: [128, 512]
+      max_npoint: 250000
+      min_npoint: 5000
+
+dataloader:
+  train:
+    batch_size: 4
+    num_workers: 4
+  test:
+    batch_size: 1
+    num_workers: 1
+
+optimizer:
+  type: 'Adam'
+  lr: 0.004
+
+fp16: False
+epochs: 20
+step_epoch: 20
+save_freq: 4
+pretrain: ''
+work_dir: ''

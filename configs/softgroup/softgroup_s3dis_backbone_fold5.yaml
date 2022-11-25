@@ -4,14 +4,14 @@ model:
   semantic_classes: 13
   instance_classes: 13
   sem2ins_classes: [0, 1]
-  semantic_only: False
+  semantic_only: True
   ignore_label: -100
   grouping_cfg:
     score_thr: 0.2
     radius: 0.04
     mean_active: 300
-    class_numpoint_mean: [1823, 7457, 6189, 7424, 34229, 1724, 5439,
-                          6016, 39796, 5279, 5092, 12210, 10225]
+    class_numpoint_mean: [34229, 39796, 12210, 7457, 5439, 10225, 6016,
+                          1724, 5092, 7424, 5279, 6189, 1823]
     npoint_thr: 0.05  # absolute if class_numpoint == -1, relative if class_numpoint != -1
     ignore_classes: [0, 1]
   instance_voxel_cfg:
@@ -25,8 +25,8 @@ model:
     cls_score_thr: 0.001
     mask_score_thr: -0.5
     min_npoint: 100
-    eval_tasks: ['semantic', 'instance']
-  fixed_modules: ['input_conv', 'unet', 'output_layer', 'semantic_linear', 'offset_linear']
+    eval_tasks: ['semantic']
+  fixed_modules: []
 
 data:
   train:
@@ -69,5 +69,5 @@ fp16: False
 epochs: 20
 step_epoch: 0
 save_freq: 2
-pretrain: 'work_dirs/softgroup_s3dis_backbone_fold5/latest.pth'
+pretrain: './hais_ckpt_spconv2.pth'
 work_dir: ''

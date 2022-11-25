@@ -3,6 +3,7 @@
 #include "bfs_cluster/bfs_cluster.h"
 #include "cal_iou_and_masklabel/cal_iou_and_masklabel.h"
 #include "datatype/datatype.h"
+#include "octree_ball_query/octree_ball_query.h"
 #include "roipool/roipool.h"
 #include "sec_mean/sec_mean.h"
 

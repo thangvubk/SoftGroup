@@ -1,0 +1,75 @@
+model:
+  channels: 32
+  num_blocks: 7
+  semantic_classes: 13
+  instance_classes: 13
+  sem2ins_classes: [0, 1]
+  semantic_only: False
+  ignore_label: -100
+  grouping_cfg:
+    score_thr: 0.2
+    radius: 0.04
+    mean_active: 300
+    class_numpoint_mean: [34229, 39796, 12210, 7457, 5439, 10225, 6016,
+                          1724, 5092, 7424, 5279, 6189, 1823]
+    npoint_thr: 0.05  # absolute if class_numpoint == -1, relative if class_numpoint != -1
+    ignore_classes: [0, 1]
+  instance_voxel_cfg:
+    scale: 50
+    spatial_shape: 20
+  train_cfg:
+    max_proposal_num: 200
+    pos_iou_thr: 0.5
+  test_cfg:
+    x4_split: True
+    cls_score_thr: 0.001
+    mask_score_thr: -0.5
+    min_npoint: 100
+    eval_tasks: ['semantic', 'instance']
+  fixed_modules: ['input_conv', 'unet', 'output_layer', 'semantic_linear', 'offset_linear']
+
+data:
+  train:
+    type: 's3dis'
+    data_root: 'dataset/s3dis/preprocess'
+    prefix: ['Area_1', 'Area_2', 'Area_3', 'Area_4', 'Area_6']
+    suffix: '_inst_nostuff.pth'
+    repeat: 20
+    training: True
+    voxel_cfg:
+      scale: 50
+      spatial_shape: [128, 512]
+      max_npoint: 250000
+      min_npoint: 5000
+    x4_split: True
+  test:
+    type: 's3dis'
+    data_root: 'dataset/s3dis/preprocess'
+    prefix: 'Area_5'
+    suffix: '_inst_nostuff.pth'
+    training: False
+    voxel_cfg:
+      scale: 50
+      spatial_shape: [128, 512]
+      max_npoint: 250000
+      min_npoint: 5000
+    x4_split: True
+
+dataloader:
+  train:
+    batch_size: 4
+    num_workers: 4
+  test:
+    batch_size: 1
+    num_workers: 1
+
+optimizer:
+  type: 'Adam'
+  lr: 0.004
+
+fp16: False
+epochs: 20
+step_epoch: 0
+save_freq: 2
+pretrain: './checkpoint/softgroup_s3dis_spconv2.pth'
+work_dir: ''
