@@ -5,6 +5,8 @@ import os.path as osp
 import shutil
 import time
 
+from test import *
+
 import torch
 import yaml
 from munch import Munch
@@ -40,6 +42,9 @@ def train(epoch, model, optimizer, scaler, train_loader, cfg, logger, writer):
 
     if train_loader.sampler is not None and cfg.dist:
         train_loader.sampler.set_epoch(epoch)
+
+    # import pdb
+    # pdb.set_trace()
 
     for i, batch in enumerate(train_loader, start=1):
         data_time.update(time.time() - end)
@@ -110,6 +115,11 @@ def validate(epoch, model, val_loader, cfg, logger, writer):
                 all_offset_preds.append(res['offset_preds'])
                 all_offset_labels.append(res['offset_labels'])
             if 'instance' in eval_tasks:
+                
+                print('DEBUG')
+                import pdb
+                pdb.set_trace()
+                
                 all_pred_insts.append(res['pred_instances'])
                 all_gt_insts.append(res['gt_instances'])
             if 'panoptic' in eval_tasks:
@@ -189,18 +199,35 @@ def main():
     if args.resume:
         logger.info(f'Resume from {args.resume}')
         start_epoch = load_checkpoint(args.resume, logger, model, optimizer=optimizer)
+        print('Reanundando desde la época ',start_epoch)
     elif cfg.pretrain:
         logger.info(f'Load pretrain from {cfg.pretrain}')
         load_checkpoint(cfg.pretrain, logger, model)
 
     # train and val
-    logger.info('Training')
+    logger.info('Training (%i épocas)'%cfg.epochs)
+    
+    # print('DEBUG 1')
+    # import pdb
+    # pdb.set_trace()
+    
+    
     for epoch in range(start_epoch, cfg.epochs + 1):
-        train(epoch, model, optimizer, scaler, train_loader, cfg, logger, writer)
-        if not args.skip_validate and (is_multiple(epoch, cfg.save_freq) or is_power2(epoch)):
-            validate(epoch, model, val_loader, cfg, logger, writer)
-        writer.flush()
+        
+        # print('DEBUG 2')
+        # import pdb
+        # pdb.set_trace()
+        
+        if epoch >= cfg.epochs:
+            print('Fin de entrenamiento')
+            break
+        else:
+            train(epoch, model, optimizer, scaler, train_loader, cfg, logger, writer)
+            if not args.skip_validate and (is_multiple(epoch, cfg.save_freq) or is_power2(epoch)):
+                validate(epoch, model, val_loader, cfg, logger, writer)
+                writer.flush()
 
+    print('Fin de entrenamiento. DEBUG')
 
 if __name__ == '__main__':
     main()

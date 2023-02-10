@@ -167,6 +167,9 @@ def main():
                 gt_insts.append(res['gt_instances'])
             if 'panoptic' in eval_tasks:
                 panoptic_preds.append(res['panoptic_preds'])
+                
+                
+        # Aquí está la chicha para hacer las predicciones:
         if 'instance' in eval_tasks:
             logger.info('Evaluate instance segmentation')
             eval_min_npoint = getattr(cfg, 'eval_min_npoint', None)

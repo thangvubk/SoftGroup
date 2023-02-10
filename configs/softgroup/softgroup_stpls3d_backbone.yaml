@@ -28,6 +28,7 @@ model:
     cls_score_thr: 0.001
     mask_score_thr: -0.5
     min_npoint: 100
+    # eval_tasks: ['semantic','instance'] # Soy yo, le metí ese instance también
     eval_tasks: ['semantic']
   fixed_modules: []
 
@@ -69,8 +70,8 @@ optimizer:
   lr: 0.004
 
 fp16: False
-epochs: 20
-step_epoch: 20
-save_freq: 4
+epochs: 10 # Originalmente salía: 20
+step_epoch: 2 # Originalmente salía: 20
+save_freq: 1 # Originalmente salía: 4
 pretrain: ''
-work_dir: ''
+work_dir: '/home/lino/Documentos/GITHUB/SoftGroup_Multiespectral/work_dirs/prueba'
