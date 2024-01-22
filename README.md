@@ -10,7 +10,7 @@ Thang Vu, Kookhoi Kim, Tung M. Luu, Thanh Nguyen, and Chang D. Yoo.\
 
 [**Scalable SoftGroup for 3D Instance Segmentation on Point Clouds**](https://arxiv.org/abs/2209.08263)\
 Thang Vu, Kookhoi Kim, Tung M. Luu, Thanh Nguyen, Junyeong Kim, and Chang D. Yoo.\
-**arXiv preprint 2022**.
+**TPAMI 2023 (accepted)**.
 
 ## Update
 - 25/Nov/2022: Support [SoftGroup++](https://arxiv.org/abs/2209.08263).
